@@ -171,8 +171,14 @@ python mine_chat.py                        # reads ./export
 python mine_chat.py --source ~/Downloads/chats
 ```
 
-Reads exports from **ChatGPT, Claude, Gemini/Takeout, generic JSON, or any folder
+Reads exports from **ChatGPT, Claude, Google Takeout, generic JSON, or any folder
 of markdown and text files.** It detects the format for you.
+
+For Gemini, choose **JSON** when you request the Takeout export. Takeout defaults
+to `MyActivity.html`, which is not parsed — point `--source` at HTML and the tool
+says so rather than reporting an empty result. Takeout records one activity per
+prompt with no conversation boundaries, so a day of prompts is grouped into one
+entry.
 
 ### Why this matters
 

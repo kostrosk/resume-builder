@@ -11,7 +11,7 @@ not filtered out at the end — it is never loaded, so it cannot leak.
 
 Never reads source/draft/ — enforced in load().
 """
-import os, re, sys, json, argparse, yaml
+import os, re, sys, argparse, yaml
 from collections import defaultdict
 
 import render as R
@@ -215,25 +215,60 @@ def entities(text):
 # Verb strength ladder. A rewrite may keep or lower the rung; never raise it.
 # "Helped establish" -> "Established" reads as a promotion from contributor to
 # owner, which is exactly the drift this product exists to prevent.
+#
+# Written as (base, past) so every surface form can be generated. A gerund is
+# the same claim as a past tense — "Leading the council" says exactly what "Led
+# the council" says — so both have to sit on the same rung or the ladder has a
+# hole in it.
 VERB_TIER = {
-    1: ("helped", "assisted", "supported", "contributed", "participated",
-        "collaborated", "aided", "advised", "consulted"),
-    2: ("established", "built", "created", "developed", "designed", "drafted",
-        "proposed", "planned", "recommended", "maintained", "documented",
-        "coordinated", "ran", "managed", "delivered", "implemented", "deployed",
-        "launched", "automated", "migrated", "configured"),
-    3: ("led", "owned", "directed", "drove", "headed", "chaired", "founded",
-        "spearheaded", "institutionalized", "governed", "orchestrated"),
+    1: [("help", "helped"), ("assist", "assisted"), ("support", "supported"),
+        ("contribute", "contributed"), ("participate", "participated"),
+        ("collaborate", "collaborated"), ("aid", "aided"), ("advise", "advised"),
+        ("consult", "consulted")],
+    2: [("establish", "established"), ("build", "built"), ("create", "created"),
+        ("develop", "developed"), ("design", "designed"), ("draft", "drafted"),
+        ("propose", "proposed"), ("plan", "planned"), ("recommend", "recommended"),
+        ("maintain", "maintained"), ("document", "documented"),
+        ("coordinate", "coordinated"), ("run", "ran"), ("manage", "managed"),
+        ("deliver", "delivered"), ("implement", "implemented"),
+        ("deploy", "deployed"), ("launch", "launched"), ("automate", "automated"),
+        ("migrate", "migrated"), ("configure", "configured")],
+    3: [("lead", "led"), ("own", "owned"), ("direct", "directed"),
+        ("drive", "drove"), ("head", "headed"), ("chair", "chaired"),
+        ("found", "founded"), ("spearhead", "spearheaded"),
+        ("institutionalize", "institutionalized"), ("govern", "governed"),
+        ("orchestrate", "orchestrated")],
 }
-TIER_OF = {v: k for k, vs in VERB_TIER.items() for v in vs}
+
+
+def _forms(base, past):
+    """Every surface form of one verb: base, third person, gerund, past."""
+    f = {base, past, base + "s"}
+    if base.endswith("e"):
+        f.add(base[:-1] + "ing")            # migrate -> migrating
+    elif re.search(r"[^aeiou][aeiou][^aeiouwxy]$", base):
+        f.add(base + base[-1] + "ing")      # plan -> planning
+    else:
+        f.add(base + "ing")                 # lead -> leading
+    if base.endswith(("s", "sh", "ch", "x", "z")):
+        f.add(base + "es")                  # establish -> establishes
+    return f
+
+
+TIER_OF = {form: tier for tier, verbs in VERB_TIER.items()
+           for base, past in verbs for form in _forms(base, past)}
 
 
 def verb_tier(text):
     """Rung of the leading verb — the one carrying the claim. Falls back to the
-    strongest verb anywhere if the line does not open with one."""
+    strongest verb anywhere if the line does not open with one.
+
+    Matches known verb forms exactly and never stems an arbitrary word into a
+    verb. "governance" is a noun; reading it as "governed" would invent a
+    leadership claim on the source side and block honest rewrites.
+    """
     for m in re.finditer(r"[A-Za-z]+", text):
-        w = m.group(0).lower()
-        t = TIER_OF.get(w) or TIER_OF.get(stem(w) + "ed")
+        t = TIER_OF.get(m.group(0).lower())
         if t:
             return t
         if m.start() > 40:
@@ -350,7 +385,10 @@ def select(cfg, jobs, exps, jdw):
 
     order = sorted(jobs.values(), key=lambda j: -j.get("priority", 0))
     used, chosen = 0, defaultdict(list)
-    for rnd in range(12):                       # round-robin so senior jobs fill first
+    # Enough rounds for the greediest job — a fixed ceiling here would silently
+    # cap max_bullets and the config would be quietly lying to you.
+    rounds = max([j.get("max_bullets", 4) for j in jobs.values()] or [0])
+    for rnd in range(rounds):                   # round-robin so senior jobs fill first
         progressed = False
         for j in order:
             jid = j["id"]
@@ -420,8 +458,10 @@ def main():
                               "budget": it["budget"], "ref": it})
 
     rewrites = {}
-    if a.llm and cfg.get("rewrite", {}).get("enabled", True) and items:
-        print(f"  rewriting {len(items)} long bullets via {cfg['rewrite']['model']}…")
+    rwcfg = cfg.get("rewrite") or {}
+    if a.llm and rwcfg.get("enabled", True) and items:
+        print(f"  rewriting {len(items)} long bullets via "
+              f"{rwcfg.get('model', 'claude-sonnet-5')}…")
         rewrites = llm_rewrite(items, jd_text, cfg)
     for it in items:
         new, ok, why = rewrites.get(it["id"], (None, False, ["not attempted"]))

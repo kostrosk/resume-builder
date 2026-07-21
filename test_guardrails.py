@@ -7,11 +7,16 @@ These are the checks that stop an AI rewrite from drifting away from what you
 confirmed. If any case fails, --llm is not safe to use.
 """
 import sys, os, yaml
-from tailor import check_rewrite
+from tailor import check_rewrite, verb_tier
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-RULES = yaml.safe_load(open(os.path.join(ROOT, "config", "resume-config.yaml"),
-                            encoding="utf-8"))["rewrite"]["guardrails"]
+# Your real config is gitignored, so on a fresh clone only the example exists.
+# This test has to run for someone who just cloned the repo — it is the proof
+# that --llm is safe, and proof you cannot run is worth nothing.
+CFG = os.path.join(ROOT, "config", "resume-config.yaml")
+if not os.path.exists(CFG):
+    CFG = os.path.join(ROOT, "config", "resume-config.example.yaml")
+RULES = yaml.safe_load(open(CFG, encoding="utf-8"))["rewrite"]["guardrails"]
 
 SRC = "Helped establish a data catalog in OpenMetadata, documenting 40 critical tables."
 
@@ -35,6 +40,21 @@ CASES = [
      False, "longer than the original"),
     ("Designed and implemented a data catalog in OpenMetadata, 40 tables.",
      False, "designed -> implemented is an escalation"),
+    ("Leading a data catalog in OpenMetadata, documenting 40 tables.",
+     False, "gerund escalation: helped -> leading"),
+    ("Owning a data catalog in OpenMetadata, documenting 40 tables.",
+     False, "gerund escalation: helped -> owning"),
+    ("Building a data catalog in OpenMetadata, 40 tables.",
+     False, "gerund escalation: helped -> building"),
+]
+
+# The ladder must not read a noun as a verb. "governance" is not "governed";
+# treating it as one invents a leadership claim nobody made.
+NOUN_CASES = [
+    ("Data governance operating model rolled out across 12 domains.", 0),
+    ("Governance council chartered with decision rights.", 0),
+    ("Leading the governance council.", 3),
+    ("Helped establish the governance council.", 1),
 ]
 
 
@@ -49,7 +69,18 @@ def main():
         print(f"{'PASS' if good else 'FAIL'}  {'accept' if ok else 'reject'}  {label}")
         if why:
             print(f"          {'; '.join(why)}")
-    print(f"\n{len(CASES) - len(fails)}/{len(CASES)} passed")
+
+    print()
+    for text, expect in NOUN_CASES:
+        got = verb_tier(text)
+        good = got == expect
+        label = f"verb rung {expect} for {text!r}"
+        if not good:
+            fails.append(label)
+        print(f"{'PASS' if good else 'FAIL'}  rung {got}    {text}")
+
+    total = len(CASES) + len(NOUN_CASES)
+    print(f"\n{total - len(fails)}/{total} passed")
     if fails:
         print("\nGUARDRAILS ARE NOT SAFE — do not use --llm until these pass:")
         for f in fails:

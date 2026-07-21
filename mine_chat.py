@@ -71,8 +71,30 @@ NUM_PAT = re.compile(
     re.I)
 
 
+SKIPPED = []   # files that could not be read — reported, never swallowed
+
+
 def norm(s):
     return re.sub(r"\s+", " ", s or "").strip()
+
+
+def load_json(fp):
+    """Read a JSON export, trying the encodings exports actually ship with.
+
+    Returns (data, None) or (None, reason). A file that cannot be parsed is
+    reported rather than skipped in silence — "nothing qualified" must never be
+    the only symptom of an export this tool simply failed to open.
+    """
+    problem = ""
+    for enc in ("utf-8", "utf-8-sig", "utf-16"):
+        try:
+            with open(fp, encoding=enc) as fh:
+                return json.load(fh), None
+        except UnicodeError as e:
+            problem = f"{type(e).__name__}: {e}"
+        except Exception as e:
+            return None, f"{type(e).__name__}: {e}"
+    return None, problem or "could not decode"
 
 
 def load_cfg():
@@ -87,9 +109,9 @@ def load_cfg():
 def read_chatgpt(files):
     """ChatGPT: array of conversations, each with a `mapping` of message nodes."""
     for fp in files:
-        try:
-            convs = json.load(open(fp, encoding="utf-8"))
-        except Exception:
+        convs, err = load_json(fp)
+        if err:
+            SKIPPED.append((fp, err))
             continue
         if not isinstance(convs, list):
             continue
@@ -119,9 +141,9 @@ def read_chatgpt(files):
 def read_claude(files):
     """Claude: array of conversations with `chat_messages` [{sender, text}]."""
     for fp in files:
-        try:
-            convs = json.load(open(fp, encoding="utf-8"))
-        except Exception:
+        convs, err = load_json(fp)
+        if err:
+            SKIPPED.append((fp, err))
             continue
         if not isinstance(convs, list):
             continue
@@ -146,9 +168,9 @@ def read_claude(files):
 def read_generic_json(files):
     """Anything shaped like [{messages:[{role,content}]}] or [{role,content}]."""
     for fp in files:
-        try:
-            data = json.load(open(fp, encoding="utf-8"))
-        except Exception:
+        data, err = load_json(fp)
+        if err:
+            SKIPPED.append((fp, err))
             continue
         blocks = data if isinstance(data, list) else [data]
         for i, c in enumerate(blocks):
@@ -174,6 +196,37 @@ def read_generic_json(files):
                        "messages": msgs}
 
 
+def read_takeout(files):
+    """Google Takeout "My Activity" JSON — how Gemini history actually arrives.
+
+    Takeout records one activity per prompt, not one per conversation, so a
+    day's prompts are grouped into a single entry. Only what you typed is in
+    there, which is exactly what the grading wants.
+    """
+    for fp in files:
+        recs, err = load_json(fp)
+        if err:
+            SKIPPED.append((fp, err))
+            continue
+        if not isinstance(recs, list):
+            continue
+        def is_ai(r):
+            blob = " ".join([str(r.get("header") or "")] +
+                            [str(x) for x in (r.get("products") or [])])
+            return re.search(r"gemini|bard", blob, re.I)
+        recs = [r for r in recs if isinstance(r, dict)]
+        ai = [r for r in recs if is_ai(r)] or recs
+        byday = defaultdict(list)
+        for r in ai:
+            t = re.sub(r"^\s*(Prompted|Asked|Used)\s+", "", str(r.get("title") or ""))
+            if t.strip():
+                byday[str(r.get("time") or "")[:10]].append(t.strip())
+        for when, prompts in sorted(byday.items()):
+            yield {"title": f"Gemini activity — {when or 'undated'}",
+                   "created": when,
+                   "messages": [{"role": "user", "text": "\n\n".join(prompts)}]}
+
+
 def read_textfiles(files):
     """A folder of .md/.txt files — one file is one 'conversation'.
 
@@ -183,7 +236,8 @@ def read_textfiles(files):
     for fp in files:
         try:
             body = open(fp, encoding="utf-8", errors="replace").read()
-        except Exception:
+        except Exception as e:
+            SKIPPED.append((fp, f"{type(e).__name__}: {e}"))
             continue
         if not body.strip():
             continue
@@ -223,11 +277,22 @@ def detect(source):
             return "ChatGPT", read_chatgpt, jsons
         if '"chat_messages"' in head:
             return "Claude", read_claude, jsons
+        if '"titleUrl"' in head or '"products"' in head:
+            return "Google Takeout", read_takeout, jsons
     if jsons:
         return "generic JSON", read_generic_json, jsons
     if texts:
         return "text/markdown files", read_textfiles, texts
     return None, None, []
+
+
+def find_html(source):
+    """Takeout's default download is MyActivity.html, which nothing here reads.
+    Worth saying so out loud rather than reporting an empty result."""
+    if os.path.isfile(source):
+        return [source] if source.lower().endswith((".html", ".htm")) else []
+    return sorted(glob.glob(os.path.join(source, "**", "*.html"), recursive=True) +
+                  glob.glob(os.path.join(source, "**", "*.htm"), recursive=True))
 
 
 # ═══════════════════════════════════════════════════════════════ analysis
@@ -298,8 +363,15 @@ def main():
 
     label, reader, files = detect(a.source)
     if not reader:
+        html = find_html(a.source)
+        if html:
+            sys.exit(f"ERROR: found {len(html)} HTML file(s) and nothing else readable.\n"
+                     f"Google Takeout defaults to MyActivity.html, which this tool does "
+                     f"not parse.\nRe-run the Takeout export and choose JSON, then point "
+                     f"--source at that folder.")
         sys.exit(f"ERROR: nothing readable in {a.source}\n"
-                 f"Expected a .json export (ChatGPT, Claude, generic) or .md/.txt files.")
+                 f"Expected a .json export (ChatGPT, Claude, Takeout, generic) "
+                 f"or .md/.txt files.")
     print(f"detected: {label}  ({len(files)} file(s))")
     if a.list:
         return
@@ -348,12 +420,16 @@ def main():
     rows.sort(key=lambda r: (order[r["grade"]], -r["score"]))
 
     # ---------------------------------------------------- candidate YAML
-    cand = []
+    cand, used_ids = [], defaultdict(int)
     for r in rows:
         if r["grade"] == "DISCUSSED":
             continue
+        # Similar titles slug to the same string. Two experiences sharing an id
+        # would silently collapse into one once pasted into experiences.yaml.
+        base = f"mined-{slug(r['title'])}"
+        used_ids[base] += 1
         cand.append({
-            "id": f"mined-{slug(r['title'])}",
+            "id": base if used_ids[base] == 1 else f"{base}-{used_ids[base]}",
             "job": "TODO",
             "confirmed": False,
             "tier": "chat-corroborated",
@@ -393,9 +469,17 @@ def main():
     print(f"grades    {dict(byg)}")
     print(f"numbers   {sum(len(r['numbers']) for r in rows)} you typed yourself")
     print(f"\n  {cp}\n  {ip}")
+    if SKIPPED:
+        print(f"\nWARNING: {len(SKIPPED)} file(s) could not be read and were not mined:")
+        for fp, why in SKIPPED[:5]:
+            print(f"  {os.path.basename(fp)} — {why}")
+        if len(SKIPPED) > 5:
+            print(f"  …and {len(SKIPPED) - 5} more")
     if not rows:
-        print("\nNothing qualified. If this is not your field, edit config/mining.yaml —\n"
-              "the shipped vocabulary is for data governance.")
+        print("\nNothing qualified." + (
+            " Fix the unreadable file(s) above first." if SKIPPED else
+            " If this is not your field, edit config/mining.yaml —\n"
+            "the shipped vocabulary is for data governance."))
 
 
 if __name__ == "__main__":

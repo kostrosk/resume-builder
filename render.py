@@ -13,7 +13,7 @@ Supports inline markdown inside any bullet or text field:
 Deliberately avoids: tables, text boxes, columns, headers/footers, images.
 Every one of those breaks applicant tracking systems.
 """
-import re, datetime
+import os, re, shutil, subprocess
 from docx import Document
 from docx.shared import Pt, Inches, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -202,6 +202,54 @@ class Renderer:
     def save(self, path):
         self.doc.save(path)
         return path
+
+
+def to_pdf(docx_path, engine="auto"):
+    """Convert the built .docx to PDF. Returns (path, None) or (None, reason).
+
+    DOCX is the default output and PDF is opt-in, because as of 2026 the major
+    parsers still read Word more reliably: Workday shows measurably lower
+    section-extraction accuracy on PDF, Lever is safer on DOCX, and only
+    Greenhouse is at genuine parity. Single-column layout matters far more than
+    the container either way. PDF is here because a human eventually opens the
+    file, and it is the format that cannot be reflowed by someone else's Word.
+
+    No converter is bundled. Word or LibreOffice does the work, and if neither
+    is present that is reported rather than silently producing nothing.
+    """
+    out = os.path.splitext(docx_path)[0] + ".pdf"
+
+    if engine in ("auto", "word"):
+        try:
+            from docx2pdf import convert
+            convert(docx_path, out)
+            if os.path.exists(out):
+                return out, None
+        except ImportError:
+            if engine == "word":
+                return None, "pip install docx2pdf (needs Microsoft Word installed)"
+        except Exception as e:
+            if engine == "word":
+                return None, f"Word conversion failed: {type(e).__name__}: {e}"
+
+    if engine in ("auto", "libreoffice"):
+        exe = shutil.which("soffice") or shutil.which("libreoffice")
+        for guess in (r"C:\Program Files\LibreOffice\program\soffice.exe",
+                      r"C:\Program Files (x86)\LibreOffice\program\soffice.exe"):
+            if not exe and os.path.exists(guess):
+                exe = guess
+        if exe:
+            try:
+                subprocess.run([exe, "--headless", "--convert-to", "pdf",
+                                "--outdir", os.path.dirname(docx_path), docx_path],
+                               check=True, capture_output=True, timeout=120)
+                if os.path.exists(out):
+                    return out, None
+            except Exception as e:
+                return None, f"LibreOffice conversion failed: {type(e).__name__}: {e}"
+
+    return None, ("no PDF converter found — install either "
+                  "`pip install docx2pdf` (uses Microsoft Word) or LibreOffice")
 
 
 def verify(path, expected):

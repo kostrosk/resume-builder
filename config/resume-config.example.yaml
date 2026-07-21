@@ -198,6 +198,22 @@ page:
   min_score: 1                # drop bullets scoring below this vs the posting
 
 
+# ── OUTPUT ─────────────────────────────────────────────────────────────
+# .docx is the default on purpose. As of 2026 the major parsers still read
+# Word more reliably than PDF: Workday extracts sections measurably worse
+# from PDF, Lever is safer on .docx, and only Greenhouse is at parity.
+# Single-column layout matters more than either container.
+#
+# Add pdf when a human is the reader, or a portal demands it. No converter
+# is bundled — install one of:
+#     pip install docx2pdf     drives Microsoft Word
+#     LibreOffice              soffice, on PATH or in Program Files
+
+output:
+  formats: [docx]             # [docx] | [docx, pdf] | [pdf]
+  pdf_engine: auto            # auto | word | libreoffice
+
+
 # ── MATCHING ───────────────────────────────────────────────────────────
 # How a job posting finds your experiences.
 

@@ -505,6 +505,14 @@ def main():
     r.save(dp)
     v = R.verify(dp, shipped)
 
+    # PDF is opt-in: as of 2026 the major parsers still read .docx more
+    # reliably, so the default output stays the one most likely to survive an
+    # ATS. Ask for it in config when a human is the reader.
+    ocfg = cfg.get("output") or {}
+    pdf_path, pdf_err = None, None
+    if "pdf" in [str(f).lower() for f in ocfg.get("formats", ["docx"])]:
+        pdf_path, pdf_err = R.to_pdf(dp, ocfg.get("pdf_engine", "auto"))
+
     # -------------------------------------------------------------- files
     with open(os.path.join(OUT, f"{name}-gaps.md"), "w", encoding="utf-8") as f:
         f.write(f"# Gaps — {jd_title}\n\n")
@@ -561,6 +569,10 @@ def main():
     print(f"docx      {v['paragraphs']} paras, {v['tables']} tables, "
           f"{'all text extracts' if not v['missing'] else str(len(v['missing'])) + ' MISSING'}")
     print(f"\n  {dp}")
+    if pdf_path:
+        print(f"  {pdf_path}")
+    elif pdf_err:
+        print(f"  PDF not written — {pdf_err}")
     if items:
         print(f"  {os.path.join(OUT, name + '-rewrites.md')}   <-- review before sending")
 

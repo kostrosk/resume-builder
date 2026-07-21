@@ -313,11 +313,48 @@ number, career history, and chat exports stay on your machine.
 
 ## Not built yet
 
-Cover letters, reading postings from a URL, autofilling applications.
+Cover letters, reading postings from a URL, autofilling applications, a web UI,
+structured Education / Certifications sections.
 
-## Output notes
+---
 
-Single column, plain headings, no tables, no text boxes, no headers or footers —
-applicant tracking systems mangle anything fancier. Every file is re-opened and
-re-read before you see it, because a resume that will not parse is a resume nobody
+## Output format: .docx or PDF
+
+```yaml
+output:
+  formats: [docx]           # [docx] | [docx, pdf] | [pdf]
+  pdf_engine: auto          # auto | word | libreoffice
+```
+
+**`.docx` is the default on purpose.** As of 2026 the major parsers still read
+Word more reliably than PDF: Workday extracts sections measurably worse from
+PDF, Lever is safer on `.docx`, and only Greenhouse is at genuine parity. If you
+are optimising for getting through the screen, send Word.
+
+Turn PDF on when a human is the reader, or when a portal demands it. No
+converter is bundled — install either:
+
+```bash
+pip install docx2pdf        # drives Microsoft Word
+                            # or install LibreOffice (soffice)
+```
+
+If neither is present the build says so instead of silently skipping the file.
+
+The container matters much less than the layout. Single column, plain headings,
+no tables, no text boxes, no headers or footers — applicant tracking systems
+mangle anything fancier, in either format. Every file is re-opened and re-read
+before you see it, because a resume that will not parse is a resume nobody
 reads.
+
+---
+
+## Design
+
+[DESIGN.md](DESIGN.md) covers why it is built this way: the verification gate,
+the data model, why matching is deterministic rather than embedding-based, and
+why the rewrite model is not trusted.
+
+Working on the code? [`.claude/skills/resume-builder/`](.claude/skills/resume-builder/SKILL.md)
+holds the conventions — the rules that cannot be broken and what to run before
+shipping a change.

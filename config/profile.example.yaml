@@ -1,0 +1,12 @@
+# Copy to profile.yaml and fill in. profile.yaml is gitignored.
+
+name: Your Name
+
+# Canonical employer names. First term prints; the rest are aliases matched
+# case-insensitively, so differently-formatted resume headers merge into
+# one role instead of fragmenting into several.
+employer: Acme Corporation | acme, acme corp
+employer: Globex Inc. | globex
+
+# Employers to look for when inventorying old resumes.
+detect: Acme, Globex, Initech

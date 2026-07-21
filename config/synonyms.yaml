@@ -1,0 +1,32 @@
+# Synonym groups for JD matching. One group per line:
+#   canonical: alt, alt, alt
+# Everything on a line is treated as mutually equivalent when scoring.
+# Edit freely — this file is read at runtime, no rebuild needed.
+
+data catalog: metadata repository, business glossary, data dictionary, data inventory, catalog
+data governance: information governance, data stewardship, governance program, dg
+data classification: data tagging, sensitivity labeling, data labeling, classification policy
+data lineage: lineage, provenance, impact analysis, traceability
+data quality: dq, data integrity, data accuracy, data validation, quality monitoring
+access control: rbac, entitlements, permissions, least privilege, row access policy, column-level security
+masking: obfuscation, redaction, anonymization, pseudonymization, tokenization
+pii: personal data, sensitive data, phi, personally identifiable information
+compliance: regulatory, gdpr, ccpa, sox, hipaa, audit readiness
+data steward: stewardship, data owner, data custodian
+operating model: governance framework, target operating model, tom, governance structure
+data council: governance council, steering committee, working group, data governance board
+metadata management: metadata, technical metadata, business metadata
+master data: mdm, reference data, golden record
+data platform: data warehouse, lakehouse, data lake, snowflake, databricks, redshift, bigquery
+business intelligence: bi, power bi, tableau, looker, reporting, dashboards
+data modeling: dimensional modeling, star schema, semantic layer, data model
+etl: elt, data pipeline, ingestion, dbt, airflow, fivetran, integration
+ai governance: responsible ai, model governance, model risk, ai risk, algorithmic accountability
+policy as code: policy-as-code, automated controls, guardrails, technical controls
+retention: records management, archival, purge, data lifecycle, disposition
+privacy: data privacy, confidentiality, dlp, data loss prevention
+stakeholder management: executive communication, cross-functional, influence, partnership
+change management: adoption, enablement, training, data literacy
+roadmap: strategy, vision, multi-year plan, prioritization
+salesforce: crm, sfdc
+servicenow: itsm, cmdb, csdm

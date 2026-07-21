@@ -1,0 +1,34 @@
+# ─────────────────────────────────────────────────────────────
+# CAREER DATA — NEVER PUBLISHED
+# The tooling is the portfolio piece. The history stays local.
+# ─────────────────────────────────────────────────────────────
+master-resume.md
+config/profile.yaml
+source/
+work/
+evidence/
+output/
+lineage/
+applications.csv
+
+# Raw ChatGPT export (personal conversations, ~235MB)
+export/
+
+# Design doc — names real employers and flags which claims are unverified
+GOAL.md
+
+# Job descriptions reveal where I'm applying; keep the sample as docs
+jd/*
+!jd/sample-director-dg.md
+
+# Generated documents
+*.docx
+*.pdf
+~$*
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env

@@ -111,6 +111,26 @@ python migrate.py              # turn them into experiences
 You now have `data/experiences.yaml`, with duplicates merged and conflicting
 versions flagged. Everything arrives unconfirmed.
 
+### 5. Confirm what is true
+
+```bash
+python confirm.py            # writes work/confirm.md — tick what is true
+python confirm.py --apply    # carries your ticks back into the library
+```
+
+**Nothing you have not confirmed can reach a document.** That is the gate, and
+it is the reason this tool exists — so it is also the step people skip and then
+wonder why their resume is thin. Unconfirmed experiences are not hidden or
+deprioritised, they are never loaded at all.
+
+Tick what you would defend in an interview. Leave anything you are unsure of
+alone. `confirm.py` never sets the flag for you; it only carries your ticks,
+writes a timestamped backup first, and touches nothing but `confirmed:` lines.
+
+`python propose.py jd/<name>.md` will tell you which unconfirmed experiences
+would match a specific posting — the fastest way to know which ticks are worth
+your time.
+
 An experience looks like this:
 
 ```yaml
@@ -129,7 +149,7 @@ An experience looks like this:
 `tags` is how a posting finds it. `kind: target` means you aimed at that number,
 not that you hit it — those print as "established criteria of X", never as a win.
 
-### 5. Apply
+### 6. Apply
 
 ```bash
 python propose.py jd/acme.md    # what should go on this resume, and why
@@ -151,7 +171,7 @@ You get back:
 | `output/acme-gaps.md` | What the job wanted that you cannot back up |
 | `lineage/acme.md` | Where every line came from |
 
-### 6. Tune it
+### 7. Tune it
 
 When the automatic match gets something wrong, four knobs on any experience:
 
@@ -303,6 +323,7 @@ number, career history, and chat exports stay on your machine.
 |---|---|
 | `ingest.py` | Read old `.docx` resumes into text |
 | `migrate.py` | Turn them into your experience library |
+| `confirm.py` | Tick what is true — the gate everything else depends on |
 | `mine_chat.py` | Find forgotten work in AI chat exports |
 | `propose.py` | Read a posting, say what to add and why |
 | `tailor.py` | Match, select, score |

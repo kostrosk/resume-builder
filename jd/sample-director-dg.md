@@ -1,3 +1,10 @@
+---
+company: Sample Corp
+role: Director, Data Governance
+req: SAMPLE-001
+location: Remote (US)
+---
+
 Director, Data Governance
 
 About the role

@@ -57,9 +57,13 @@ def main():
         print(f"ERROR: no such posting: {a.jd}")
         sys.exit(1)
 
-    jd_text = open(jdp, encoding="utf-8").read()
+    meta, jd_text = T.jd_meta(open(jdp, encoding="utf-8").read())
     name = os.path.splitext(os.path.basename(jdp))[0]
-    title = next((l.strip("# ").strip() for l in jd_text.splitlines() if l.strip()), name)
+    if meta.get("role") or meta.get("company"):
+        title = " — ".join(x for x in (meta.get("role"), meta.get("company")) if x)
+    else:
+        title = next((l.strip("# ").strip() for l in jd_text.splitlines()
+                      if l.strip()), name)
 
     cfg, jobs, exps = load_all()
     mcfg = cfg.get("matching", {})

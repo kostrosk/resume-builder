@@ -1,7 +1,11 @@
 # resume-builder
 
-Turn old resumes and years of AI chat history into one resume library, then
-generate a tailored, one-page resume for any job posting.
+Turn old resumes, years of AI chat history, and your code projects into one
+resume library, then generate a tailored, one-page resume for any job posting.
+
+**New here? Read [PLAYBOOK.md](PLAYBOOK.md)** — the plain-language guide to
+every file and every workflow. This README is the reference;
+[DESIGN.md](DESIGN.md) is the reasoning.
 
 ---
 
@@ -55,7 +59,7 @@ pip install python-docx pyyaml
 |---|---|---|
 | Old resumes (`.docx`) | to start fast | any folder — `python ingest.py <folder>` |
 | AI chat export | optional, high value | `./export/` — see below |
-| Job posting | per application | `jd/<name>.md`, copy-paste the text |
+| Job posting | per application | `jd/<name>.md` — paste the text, add facts up top (see below) |
 | Your details | once | `config/resume-config.yaml` |
 
 You need at least one of: old resumes, an AI export, or the patience to write
@@ -151,9 +155,26 @@ not that you hit it — those print as "established criteria of X", never as a w
 
 ### 6. Apply
 
+Start the posting file with its facts, then paste the text below them:
+
+```yaml
+---
+company: Acme Corporation
+role: Director, Data Governance
+req: R-12345            # requisition / posting id
+location: Remote (US)
+salary: $170,000-$260,000
+closes: 2026-09-06
+---
+```
+
+All optional — but company and role flow into your application log and the
+gaps report, and the requisition id is the thing recruiters ask for.
+
 ```bash
 python propose.py jd/acme.md    # what should go on this resume, and why
 python run.py jd/acme.md        # build it
+python interview.py jd/acme.md  # be asked about the gaps (see below)
 ```
 
 `propose.py` answers three questions and changes nothing:
@@ -190,10 +211,16 @@ exclude: true       # never include it
 python mine_chat.py                        # reads ./export
 python mine_chat.py --source ~/Downloads/chats
 python mine_chat.py --jd jd/acme.md        # aim it at a posting
+python mine_chat.py --pull-claude          # grab Claude Code history off disk
 ```
 
-Reads exports from **ChatGPT, Claude, Google Takeout, generic JSON, or any folder
-of markdown and text files.** It detects the format for you.
+Reads exports from **ChatGPT, Claude, Claude Code, Google Takeout, generic
+JSON, or any folder of markdown and text files.** Formats are detected per
+file, and a folder holding several kinds is mined in one pass. Getting the
+exports: ChatGPT is Settings → Data controls → Export; claude.ai is Settings →
+Privacy → Export data (arrives by email — unzip into `./export/`). Claude Code
+needs no export at all: `--pull-claude` copies its transcripts straight off
+your disk, skipping this tool's own sessions so the resume cannot cite itself.
 
 For Gemini, choose **JSON** when you request the Takeout export. Takeout defaults
 to `MyActivity.html`, which is not parsed — point `--source` at HTML and the tool
@@ -277,6 +304,46 @@ across the ones that are true.
 
 ---
 
+## Being asked about your gaps
+
+```bash
+python interview.py jd/acme.md
+```
+
+The gaps report tells you what a posting wants that nothing confirmed covers.
+This asks you about each one, in order of how much the posting cares:
+
+1. the term, and the posting's own sentence using it
+2. the nearest thing already in your library — often the honest answer is
+   "confirm that one", not "write something new"
+3. then it listens. **Your answer, in your words, becomes the experience —
+   verbatim.** It never suggests wording, never proposes a number, and a
+   skipped question stays a gap, which is the truthful outcome.
+
+Each answer ends with one direct question — *would you defend that sentence in
+an interview?* — and only a yes marks it confirmed. Entries land in
+`data/experiences.yaml` under `tier: interviewed`, editable like everything
+else, with a timestamped backup written first.
+
+---
+
+## Mining your code projects
+
+```bash
+python mine_repos.py                       # local git repos (Antigravity workspace included)
+python mine_repos.py --root ~/projects     # any folder of repos
+python mine_repos.py --agent-notes         # + your IDE agent's session notes
+```
+
+Surfaces each repo's own description, commit span, languages, and which of
+your vocabulary it touches. With `--agent-notes`, claim sentences from IDE
+agent walkthroughs too. **These are one tier weaker than chat mining** — a
+README or an agent's summary is usually model-written, so every candidate says
+so and everything lands unconfirmed: verify it happened, check no employer
+code is inside, rewrite in your words.
+
+---
+
 ## Using it while employed
 
 This is the version that compounds.
@@ -349,6 +416,8 @@ number, career history, and chat exports stay on your machine.
 | `migrate.py` | Turn them into your experience library |
 | `confirm.py` | Tick what is true — the gate everything else depends on |
 | `mine_chat.py` | Find forgotten work in AI chat exports |
+| `mine_repos.py` | Surface project evidence from git repos and agent notes |
+| `interview.py` | Ask you about a posting's gaps; record your answers |
 | `propose.py` | Read a posting, say what to add and why |
 | `tailor.py` | Match, select, score |
 | `render.py` | Style and write the Word document |

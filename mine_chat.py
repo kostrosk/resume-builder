@@ -196,6 +196,86 @@ def read_generic_json(files):
                        "messages": msgs}
 
 
+def read_claude_code(files):
+    """Claude Code session transcripts (.jsonl) — already on your disk under
+    ~/.claude/projects, no export request needed. `--pull-claude` copies them
+    into ./export/claude-code first.
+
+    Only text you typed becomes user evidence. Tool results, system reminders,
+    and command output also arrive typed "user" in these files, so anything
+    that opens with markup or a caveat header is discarded.
+    """
+    for fp in files:
+        msgs, title = [], ""
+        try:
+            fh = open(fp, encoding="utf-8", errors="replace")
+        except Exception as e:
+            SKIPPED.append((fp, f"{type(e).__name__}: {e}"))
+            continue
+        created = ""
+        with fh:
+            for ln in fh:
+                try:
+                    o = json.loads(ln)
+                except Exception:
+                    continue
+                t, msg = o.get("type"), o.get("message") or {}
+                if t not in ("user", "assistant"):
+                    continue
+                if not created and o.get("timestamp"):
+                    created = str(o["timestamp"])
+                c = msg.get("content")
+                texts = []
+                if isinstance(c, str):
+                    texts = [c]
+                elif isinstance(c, list):
+                    texts = [b.get("text", "") for b in c
+                             if isinstance(b, dict) and b.get("type") == "text"]
+                txt = "\n".join(x for x in texts if x).strip()
+                if not txt:
+                    continue
+                if t == "user" and (txt.startswith(("<", "Caveat:")) or
+                                    "system-reminder" in txt[:200]):
+                    continue        # harness plumbing, not something you said
+                msgs.append({"role": t, "text": txt})
+                if t == "user" and not title:
+                    title = norm(txt)[:70]
+        if msgs:
+            yield {"title": title or os.path.basename(fp),
+                   "created": created[:10], "messages": msgs}
+
+
+def pull_claude(dest):
+    """Copy Claude Code transcripts from ~/.claude/projects into ./export.
+
+    Sessions from THIS project are skipped: transcripts of building a resume
+    tool are saturated with resume vocabulary, and mining them would be the
+    resume agreeing with itself — the exact circularity the quarantine rules
+    exist to stop.
+    """
+    src = os.path.join(os.path.expanduser("~"), ".claude", "projects")
+    if not os.path.isdir(src):
+        sys.exit(f"ERROR: {src} not found — no Claude Code history on this machine.")
+    os.makedirs(dest, exist_ok=True)
+    copied = skipped_self = 0
+    for fp in sorted(glob.glob(os.path.join(src, "*", "*.jsonl"))):
+        if os.path.getsize(fp) < 2048:
+            continue                       # empty or near-empty session
+        head = open(fp, encoding="utf-8", errors="replace").read(20000)
+        if re.search(r"resume[-_ ]?(agent|builder)|session-env", head, re.I):
+            skipped_self += 1
+            continue
+        proj = os.path.basename(os.path.dirname(fp))
+        out = os.path.join(dest, f"{proj}--{os.path.basename(fp)}")
+        import shutil
+        shutil.copy2(fp, out)
+        copied += 1
+    print(f"pulled {copied} session(s) into {dest}")
+    print(f"skipped {skipped_self} resume-builder session(s) — mining those "
+          f"would be the resume citing itself")
+    return copied
+
+
 def read_takeout(files):
     """Google Takeout "My Activity" JSON — how Gemini history actually arrives.
 
@@ -260,30 +340,46 @@ def read_textfiles(files):
 
 
 def detect(source):
-    """Work out which reader applies. Returns (label, reader, files)."""
+    """Work out which readers apply. Returns a list of (label, reader, files).
+
+    A list, not a single winner: an export folder legitimately holds a ChatGPT
+    export next to pulled Claude Code sessions next to a notes directory, and
+    one run should mine all of it. Each .json file is sniffed individually so
+    mixed folders sort correctly.
+    """
     if os.path.isfile(source):
-        jsons, texts = ([source], []) if source.endswith(".json") else ([], [source])
+        if source.endswith(".jsonl"):
+            return [("Claude Code", read_claude_code, [source])]
+        jsonl, jsons, texts = ([], [source], []) if source.endswith(".json") \
+            else ([], [], [source])
     else:
+        jsonl = sorted(glob.glob(os.path.join(source, "**", "*.jsonl"), recursive=True))
         jsons = sorted(glob.glob(os.path.join(source, "**", "*.json"), recursive=True))
         texts = sorted(glob.glob(os.path.join(source, "**", "*.md"), recursive=True) +
                        glob.glob(os.path.join(source, "**", "*.txt"), recursive=True))
+    buckets = defaultdict(list)
     for fp in jsons:
         try:
             with open(fp, encoding="utf-8") as fh:
                 head = fh.read(6000)
         except Exception:
-            continue
+            head = ""
         if '"mapping"' in head:
-            return "ChatGPT", read_chatgpt, jsons
-        if '"chat_messages"' in head:
-            return "Claude", read_claude, jsons
-        if '"titleUrl"' in head or '"products"' in head:
-            return "Google Takeout", read_takeout, jsons
-    if jsons:
-        return "generic JSON", read_generic_json, jsons
+            buckets["ChatGPT"].append(fp)
+        elif '"chat_messages"' in head:
+            buckets["Claude"].append(fp)
+        elif '"titleUrl"' in head or '"products"' in head:
+            buckets["Google Takeout"].append(fp)
+        else:
+            buckets["generic JSON"].append(fp)
+    readers = {"ChatGPT": read_chatgpt, "Claude": read_claude,
+               "Google Takeout": read_takeout, "generic JSON": read_generic_json}
+    groups = [(lb, readers[lb], fps) for lb, fps in buckets.items() if fps]
+    if jsonl:
+        groups.append(("Claude Code", read_claude_code, jsonl))
     if texts:
-        return "text/markdown files", read_textfiles, texts
-    return None, None, []
+        groups.append(("text/markdown files", read_textfiles, texts))
+    return groups
 
 
 def find_html(source):
@@ -439,7 +535,9 @@ def claims(text, vocab, ladder):
 
 def jd_vocab(path):
     """Phrases a posting actually asks for, used to aim the mining at a job."""
-    txt = open(path, encoding="utf-8").read().lower()
+    txt = open(path, encoding="utf-8").read()
+    # drop YAML front matter — req ids and salary are not vocabulary
+    txt = re.sub(r"^---\s*\n.*?\n---\s*\n", "", txt, flags=re.S).lower()
     stop = set("""the and or of to in for a an with on at by from as is are be will can
     this that these those you your our their we they it its role position job team work
     including include etc via while within across also new using use used help ensure
@@ -465,14 +563,22 @@ def main():
     ap.add_argument("--source", default=os.path.join(ROOT, "export"))
     ap.add_argument("--list", action="store_true", help="detect the format and stop")
     ap.add_argument("--jd", help="aim the mining at a posting: jd/<name>.md")
+    ap.add_argument("--pull-claude", action="store_true",
+                    help="copy Claude Code sessions from ~/.claude into ./export")
     a = ap.parse_args()
+
+    if a.pull_claude:
+        dest = os.path.join(ROOT, "export", "claude-code")
+        if not pull_claude(dest):
+            return
+        a.source = dest
 
     if not os.path.exists(a.source):
         sys.exit(f"ERROR: no such source: {a.source}\n"
                  f"Put your AI export in ./export or pass --source <path>.")
 
-    label, reader, files = detect(a.source)
-    if not reader:
+    groups = detect(a.source)
+    if not groups:
         html = find_html(a.source)
         if html:
             sys.exit(f"ERROR: found {len(html)} HTML file(s) and nothing else readable.\n"
@@ -480,9 +586,11 @@ def main():
                      f"not parse.\nRe-run the Takeout export and choose JSON, then point "
                      f"--source at that folder.")
         sys.exit(f"ERROR: nothing readable in {a.source}\n"
-                 f"Expected a .json export (ChatGPT, Claude, Takeout, generic) "
-                 f"or .md/.txt files.")
-    print(f"detected: {label}  ({len(files)} file(s))")
+                 f"Expected a .json export (ChatGPT, Claude, Takeout, generic), "
+                 f"Claude Code .jsonl, or .md/.txt files.")
+    for lb, _r, fps in groups:
+        print(f"detected: {lb}  ({len(fps)} file(s))")
+    label = " + ".join(lb for lb, _r, _f in groups)
     if a.list:
         return
 
@@ -507,7 +615,11 @@ def main():
     os.makedirs(WORK, exist_ok=True)
     rows, dropped, quarantined = [], 0, 0
 
-    for conv in reader(files):
+    def all_convs():
+        for _lb, reader, files in groups:
+            yield from reader(files)
+
+    for conv in all_convs():
         msgs = conv["messages"]
         full = "\n\n".join(m["text"] for m in msgs)
         mine = "\n\n".join(m["text"] for m in msgs if m["role"] == "user")
@@ -575,7 +687,15 @@ def main():
                     "claim_verb": c["verb"],
                 },
             })
-    cp = os.path.join(WORK, "mined-candidates.yaml")
+    # One output pair per source, so mining a different --source can never
+    # silently overwrite what you mined from your main export last month. The
+    # default ./export (whatever mix it holds) keeps the canonical filename.
+    if os.path.abspath(a.source) == os.path.abspath(os.path.join(ROOT, "export")):
+        suffix = ""
+    else:
+        tag = re.sub(r"[^a-z0-9]+", "-", label.lower()).strip("-")
+        suffix = f"-{tag}"
+    cp = os.path.join(WORK, f"mined-candidates{suffix}.yaml")
     with open(cp, "w", encoding="utf-8") as f:
         f.write("# Candidates mined from your AI chat history.\n"
                 "# text.long is a sentence YOU typed, quoted verbatim. Nothing here\n"
@@ -592,7 +712,7 @@ def main():
         yaml.safe_dump({"experiences": cand}, f, sort_keys=False,
                        allow_unicode=True, width=100)
 
-    ip = os.path.join(WORK, "mined-index.md")
+    ip = os.path.join(WORK, f"mined-index{suffix}.md")
     with open(ip, "w", encoding="utf-8") as f:
         f.write(f"# Mined from {label} — CANDIDATES, NOT VERIFIED\n\n")
         f.write("Grade reflects artifacts in **your own** messages.\n")

@@ -87,6 +87,34 @@ def expand(s):
     return out
 
 
+def jd_meta(text):
+    """Structured facts about a posting, from YAML front matter:
+
+        ---
+        company: Acme Corporation
+        role: Director, Data Governance
+        req: R-12345
+        location: Remote (US)
+        salary: $170,000-$260,000
+        closes: 2026-09-06
+        url: https://...
+        ---
+
+    Returns (meta, body). The body is what gets matched — salary figures and
+    requisition ids are facts about the application, not vocabulary to score
+    bullets against. All keys optional; a posting with no front matter still
+    works, it just logs under its filename.
+    """
+    m = re.match(r"^---\s*\n(.*?)\n---\s*\n", text, re.S)
+    if not m:
+        return {}, text
+    try:
+        meta = yaml.safe_load(m.group(1))
+    except yaml.YAMLError:
+        return {}, text
+    return (meta if isinstance(meta, dict) else {}), text[m.end():]
+
+
 # ------------------------------------------------------------------- load
 def load():
     if not os.path.exists(CONF):
@@ -433,9 +461,13 @@ def main():
     if not os.path.exists(jdp):
         die(f"JD not found: {a.jd}")
 
-    jd_text = open(jdp, encoding="utf-8").read()
+    meta, jd_text = jd_meta(open(jdp, encoding="utf-8").read())
     name = os.path.splitext(os.path.basename(jdp))[0]
-    jd_title = next((l.strip("# ").strip() for l in jd_text.splitlines() if l.strip()), name)
+    if meta.get("role") or meta.get("company"):
+        jd_title = " — ".join(x for x in (meta.get("role"), meta.get("company")) if x)
+    else:
+        jd_title = next((l.strip("# ").strip() for l in jd_text.splitlines()
+                         if l.strip()), name)
 
     cfg, jobs, exps, gated = load()
     if not exps:
@@ -516,6 +548,12 @@ def main():
     # -------------------------------------------------------------- files
     with open(os.path.join(OUT, f"{name}-gaps.md"), "w", encoding="utf-8") as f:
         f.write(f"# Gaps — {jd_title}\n\n")
+        facts = [(k, meta[k]) for k in ("company", "role", "req", "location",
+                                        "salary", "closes", "url") if meta.get(k)]
+        if facts:
+            f.write("| " + " | ".join(k for k, _ in facts) + " |\n")
+            f.write("|" + "---|" * len(facts) + "\n")
+            f.write("| " + " | ".join(str(v) for _, v in facts) + " |\n\n")
         f.write(f"- profile: **{profile}** (seniority {sig}, strategy/execution {s_}/{e_})\n")
         f.write(f"- ATS score: **{scoreval}/100**\n")
         f.write(f"- bullets shipped: {len(shipped)} | experiences eligible: {len(exps)} "

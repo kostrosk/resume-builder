@@ -42,8 +42,14 @@ def main():
 
     sys.path.insert(0, ROOT)
     import track
-    row = track.log(name, company=name.replace("-", " ").title())
-    print(f"\nlogged: {row['date']}  {row['company']}  ATS {row['ats_score']}  {row['profile']}")
+    import tailor
+    jdp = jd if os.path.exists(jd) else os.path.join(ROOT, jd)
+    meta, _ = tailor.jd_meta(open(jdp, encoding="utf-8").read())
+    row = track.log(name,
+                    company=meta.get("company") or name.replace("-", " ").title(),
+                    role=meta.get("role", ""))
+    print(f"\nlogged: {row['date']}  {row['company']}  {row['role']}  "
+          f"ATS {row['ats_score']}  {row['profile']}")
 
 
 if __name__ == "__main__":

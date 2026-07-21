@@ -346,6 +346,115 @@ def excluded(title, body, cfg):
     return False
 
 
+# ═══════════════════════════════════════════════════════ asserted claims
+# The difference between "Create a masking policy" and "Created a masking
+# policy" is the difference between an instruction you gave a model and work
+# you did. Only the second is evidence, and it is quoted verbatim — this tool
+# surfaces claims you already made. It never writes one for you.
+
+SENT = re.compile(r"(?<=[.!?])\s+|\n+")
+ASK = re.compile(
+    r"^\s*(can|could|would|should|how|what|why|when|where|is|are|do|does|did|please|"
+    r"help|give|generate|make|draft|explain|summari[sz]e|review|suggest|tell|show|"
+    r"need|want|let'?s|write|create|add|use|set|update|select|alter|grant|insert)\b", re.I)
+CODE = re.compile(r"[{}]|\b(SELECT|CREATE|ALTER|GRANT|INSERT|VALUES|WHERE|RETURNS|"
+                  r"FROM|JOIN|def|import)\b")
+FIRST_PERSON = re.compile(
+    r"\b(?:i|we|my team|our team)\s+(?:also\s+|then\s+|later\s+|successfully\s+)?"
+    r"([a-z]+)\b", re.I)
+# "we need to mask PII" is intent, not delivery. A verb followed by "to" is
+# something you were about to do.
+INTENT = re.compile(r"^\s*to\b", re.I)
+
+SHIPPED = {
+    "OPERATIONAL": "you pasted output only a running system produces — strongest "
+                   "sign it shipped",
+    "CONFIGURED": "you pasted code or config — you built it; confirm it reached "
+                  "production",
+    "DISCUSSED": "described only, no artifact pasted — confirm whether this "
+                 "shipped and how",
+}
+
+
+def past_verbs(cfg):
+    """Verbs that mark a claim of delivered work.
+
+    The scope ladder from the rewrite guardrail, plus `claim_verbs` from
+    config. Deliberately an explicit list rather than a pattern: matching any
+    word ending in "ed" reads "we need to mask PII" as a delivery claim,
+    because "need" is "ne" + "ed". A tool whose whole purpose is refusing to
+    invent claims cannot guess at grammar.
+    """
+    try:
+        from tailor import VERB_TIER
+        out = {p: t for t, vs in VERB_TIER.items() for _, p in vs}
+    except Exception:
+        out = {}
+    for v in cfg.get("claim_verbs") or []:
+        out.setdefault(str(v).lower(), 2)
+    return out
+
+
+def claims(text, vocab, ladder):
+    """Sentences YOU typed that assert completed work. Returned verbatim.
+
+    Two ways in, both requiring past tense:
+      "I/we <past>"      a first-person claim — the pronoun makes it yours
+      "<ladder past> …"  resume-bullet phrasing, restricted to known verbs so
+                         a stray -ed adjective cannot open a sentence and pass
+
+    Questions, instructions to the model, and pasted code are all rejected.
+    """
+    out, seen = [], set()
+    # Chat exports carry invisible Unicode (zero-width spaces, BOMs, soft
+    # hyphens). Shipped into a resume they survive copy-paste and can break
+    # ATS keyword matching, so strip them before anything is quoted.
+    text = re.sub("[\u200b-\u200f\u2060\ufeff\u00ad]", "", text or "")
+    for s in SENT.split(text):
+        s = re.sub(r"\s+", " ", s).strip(" -*#>•\t")
+        if not (40 <= len(s) <= 320) or "?" in s or ASK.match(s) or CODE.search(s):
+            continue
+        low = s.lower()
+        matched = [v for v in vocab if v in low]
+        if not matched:
+            continue
+        verb, rung = None, 0
+        m = FIRST_PERSON.search(s)
+        if m and m.group(1).lower() in ladder and not INTENT.match(s[m.end():]):
+            verb, rung = m.group(1).lower(), ladder[m.group(1).lower()]
+        else:
+            f = re.match(r"^([A-Za-z]+)", s)
+            if f and f.group(1).lower() in ladder and not INTENT.match(s[f.end():]):
+                verb, rung = f.group(1).lower(), ladder[f.group(1).lower()]
+        if not verb:
+            continue
+        key = re.sub(r"[^a-z0-9]", "", low)[:70]
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append({"text": s, "verb": verb, "rung": rung,
+                    "terms": sorted(set(matched))[:6]})
+    return out
+
+
+def jd_vocab(path):
+    """Phrases a posting actually asks for, used to aim the mining at a job."""
+    txt = open(path, encoding="utf-8").read().lower()
+    stop = set("""the and or of to in for a an with on at by from as is are be will can
+    this that these those you your our their we they it its role position job team work
+    including include etc via while within across also new using use used help ensure
+    ensuring strong excellent experience years ability across other such more most""".split())
+    words = re.findall(r"[a-z][a-z\-]+", txt)
+    grams = defaultdict(int)
+    for n in (2, 3):
+        for i in range(len(words) - n + 1):
+            g = words[i:i + n]
+            if g[0] in stop or g[-1] in stop or any(len(w) < 3 for w in g):
+                continue
+            grams[" ".join(g)] += 1
+    return sorted([g for g, n in grams.items() if n >= 2], key=lambda g: -grams[g])[:120]
+
+
 def slug(s, n=5):
     w = [x for x in re.findall(r"[a-z]+", s.lower()) if len(x) > 3][:n]
     return "-".join(w) or "candidate"
@@ -355,6 +464,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--source", default=os.path.join(ROOT, "export"))
     ap.add_argument("--list", action="store_true", help="detect the format and stop")
+    ap.add_argument("--jd", help="aim the mining at a posting: jd/<name>.md")
     a = ap.parse_args()
 
     if not os.path.exists(a.source):
@@ -382,6 +492,18 @@ def main():
     min_core = sc.get("min_core_terms", 2)
     min_score = sc.get("min_score", 25)
 
+    vocab = [str(t).lower() for t in
+             (cfg.get("core") or []) + (cfg.get("supporting") or [])]
+    jdterms = []
+    if a.jd:
+        jdp = a.jd if os.path.exists(a.jd) else os.path.join(ROOT, a.jd)
+        if not os.path.exists(jdp):
+            sys.exit(f"ERROR: JD not found: {a.jd}")
+        jdterms = jd_vocab(jdp)
+        vocab = sorted(set(vocab) | set(jdterms))
+        print(f"aimed at   {os.path.basename(jdp)}  ({len(jdterms)} posting phrases)")
+    ladder = past_verbs(cfg)
+
     os.makedirs(WORK, exist_ok=True)
     rows, dropped, quarantined = [], 0, 0
 
@@ -396,7 +518,11 @@ def main():
             quarantined += 1
             continue
         total, core, hits = scorer(full)
-        if len(core) < min_core or total < min_score:
+        found = claims(mine, vocab, ladder)
+        # A sentence where you say you did the work is evidence in its own
+        # right. Dropping it for failing a vocabulary threshold discards the
+        # very thing this tool exists to surface.
+        if (len(core) < min_core or total < min_score) and not found:
             dropped += 1
             continue
         g, why = grade(mine)
@@ -414,7 +540,7 @@ def main():
                          "context": norm(mine[s:m.end() + 60])[:180]})
         rows.append({"title": title, "date": when, "score": total, "grade": g,
                      "why": why, "core": sorted(core), "numbers": nums,
-                     "excerpt": norm(mine)[:400]})
+                     "claims": found, "excerpt": norm(mine)[:400]})
 
     order = {"OPERATIONAL": 0, "CONFIGURED": 1, "DISCUSSED": 2}
     rows.sort(key=lambda r: (order[r["grade"]], -r["score"]))
@@ -422,31 +548,47 @@ def main():
     # ---------------------------------------------------- candidate YAML
     cand, used_ids = [], defaultdict(int)
     for r in rows:
-        if r["grade"] == "DISCUSSED":
-            continue
-        # Similar titles slug to the same string. Two experiences sharing an id
-        # would silently collapse into one once pasted into experiences.yaml.
-        base = f"mined-{slug(r['title'])}"
-        used_ids[base] += 1
-        cand.append({
-            "id": base if used_ids[base] == 1 else f"{base}-{used_ids[base]}",
-            "job": "TODO",
-            "confirmed": False,
-            "tier": "chat-corroborated",
-            "tags": r["core"][:6],
-            "metrics": r["numbers"][:3],
-            "text": {"long": f"TODO — write this in your own words. "
-                             f"Source conversation: \"{r['title']}\" ({r['date']}, "
-                             f"{r['grade']}).", "medium": "", "short": ""},
-            "_evidence": {"conversation": r["title"], "date": r["date"],
-                          "grade": r["grade"], "excerpt": r["excerpt"][:220]},
-        })
+        # One candidate per claim you made, not one per conversation. A single
+        # conversation often covers several distinct pieces of work, and a
+        # conversation with no claim in it is not an experience.
+        for c in sorted(r["claims"], key=lambda x: -x["rung"])[:4]:
+            # Similar titles slug to the same string. Two experiences sharing
+            # an id would silently collapse into one in experiences.yaml.
+            base = f"mined-{slug(c['text'])}"
+            used_ids[base] += 1
+            cand.append({
+                "id": base if used_ids[base] == 1 else f"{base}-{used_ids[base]}",
+                "job": "TODO",
+                "confirmed": False,
+                "tier": "chat-corroborated",
+                "tags": (c["terms"] or r["core"])[:6],
+                "metrics": r["numbers"][:3],
+                # YOUR sentence, verbatim. Edit it into resume wording; do not
+                # treat it as already written.
+                "text": {"long": c["text"], "medium": "", "short": ""},
+                "_evidence": {
+                    "conversation": r["title"],
+                    "date": r["date"],
+                    "grade": r["grade"],
+                    "shipped": SHIPPED.get(r["grade"], ""),
+                    "your_words": c["text"],
+                    "claim_verb": c["verb"],
+                },
+            })
     cp = os.path.join(WORK, "mined-candidates.yaml")
     with open(cp, "w", encoding="utf-8") as f:
         f.write("# Candidates mined from your AI chat history.\n"
-                "# NOT experiences yet. Each needs a `job:` and real wording from you.\n"
-                "# Move the ones that are true into data/experiences.yaml.\n"
-                "# All are confirmed: false — the builder cannot see them.\n\n")
+                "# text.long is a sentence YOU typed, quoted verbatim. Nothing here\n"
+                "# was written for you — this is a claim you already made, surfaced\n"
+                "# so you can decide whether it is true and whether it shipped.\n"
+                "#\n"
+                "# _evidence.shipped says how strong the proof of delivery is.\n"
+                "# OPERATIONAL means something ran; it does not prove you were the\n"
+                "# one who shipped it rather than the one evaluating it.\n"
+                "#\n"
+                "# For each: set a `job:`, rewrite text.long into resume wording,\n"
+                "# then move it into data/experiences.yaml. All are confirmed: false\n"
+                "# — the builder cannot see them until you say so.\n\n")
         yaml.safe_dump({"experiences": cand}, f, sort_keys=False,
                        allow_unicode=True, width=100)
 

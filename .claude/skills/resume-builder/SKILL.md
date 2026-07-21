@@ -63,6 +63,13 @@ Two refusals are deliberate:
   vocabulary because the user's resume is full of it, and feeding them back in
   is the resume agreeing with itself.
 
+Claim extraction quotes the user's own sentences **verbatim, past tense only,
+from an explicit verb list** (`claim_verbs` + the scope ladder). Never match
+verbs by pattern: "any word ending in -ed" reads "we **need** to mask PII" as
+a delivery claim. "Create a masking policy" is an instruction to a model;
+"Created a masking policy" is evidence. The tool surfaces claims the user
+already made — it must never compose one.
+
 ## Config-driven, always
 
 Vocabulary lives in `config/mining.yaml`. Style, sections, jobs, and output

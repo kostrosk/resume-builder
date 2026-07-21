@@ -88,6 +88,58 @@ ambient:
   - data model
 
 
+# ── CLAIM VERBS ────────────────────────────────────────────────────────
+# Past-tense verbs that mark a sentence as a claim of work you delivered,
+# on top of the scope ladder the rewrite guardrail already knows (built,
+# established, led, implemented, designed, …).
+#
+# An explicit list on purpose. Matching "any word ending in -ed" reads
+# "we need to mask PII" as a delivery claim, because "need" is "ne"+"ed".
+# A tool built to refuse invented claims cannot guess at grammar.
+#
+# Adding verbs widens what gets surfaced for you to approve. It never
+# widens what reaches a resume — every candidate is still confirmed: false.
+claim_verbs:
+  - operationalized
+  - standardized
+  - formalized
+  - institutionalized
+  - chartered
+  - facilitated
+  - partnered
+  - presented
+  - authored
+  - published
+  - defined
+  - consolidated
+  - centralized
+  - integrated
+  - onboarded
+  - remediated
+  - audited
+  - trained
+  - enforced
+  - monitored
+  - classified
+  - tagged
+  - mapped
+  - catalogued
+  - cataloged
+  - piloted
+  - scaled
+  - unified
+  - resolved
+  - eliminated
+  - reduced
+  - improved
+  - increased
+  - enabled
+  - streamlined
+  - negotiated
+  - staffed
+  - wrote
+
+
 # ── SCORING ────────────────────────────────────────────────────────────
 scoring:
   core_weight: 3

@@ -189,6 +189,7 @@ exclude: true       # never include it
 ```bash
 python mine_chat.py                        # reads ./export
 python mine_chat.py --source ~/Downloads/chats
+python mine_chat.py --jd jd/acme.md        # aim it at a posting
 ```
 
 Reads exports from **ChatGPT, Claude, Google Takeout, generic JSON, or any folder
@@ -224,6 +225,29 @@ Not all chat history is equal, and the difference is detectable:
 It grades on **what you pasted, not what you asked**, and recovers numbers *you
 typed* rather than numbers the AI suggested. Asking "how do I configure X" proves
 curiosity. Pasting an error from a live X proves X existed.
+
+### What becomes a candidate
+
+Sentences **you typed that assert completed work**, quoted verbatim — past
+tense only. *"Created a masking policy"* is a claim; *"Create a masking
+policy"* is you telling a model what to do, and *"we need to mask PII"* is
+intent, not delivery. Neither becomes a candidate.
+
+The verbs that count are an explicit list (`claim_verbs` in
+`config/mining.yaml`) plus the scope ladder the rewrite guardrail already
+knows. Add your field's verbs to widen what gets *surfaced* — nothing you add
+ever widens what gets *published*, because every candidate arrives
+`confirmed: false` with the evidence attached: the conversation, the date, the
+grade, and a `shipped` note telling you what still needs verifying. The tool
+finds claims you already made. It never writes one for you.
+
+### Aiming at a posting
+
+`--jd jd/<name>.md` adds the posting's own recurring phrases to the mining
+vocabulary. Work you described in the posting's language — "governance
+council", "data ownership", "operating model" — gets surfaced even when your
+base vocabulary would have missed it. Same rules: your sentences, past tense,
+everything unconfirmed until you say otherwise.
 
 ### Two things it refuses to do
 

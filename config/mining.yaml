@@ -1,0 +1,127 @@
+# ═══════════════════════════════════════════════════════════════════════
+#  MINING VOCABULARY — what counts as "work" when reading your AI chats.
+#
+#  THIS FILE IS THE ONE YOU MUST EDIT. The defaults below are for a data
+#  governance career. If that is not your field, replace every term with
+#  your own or the miner will find nothing.
+#
+#  Three tiers. A conversation qualifies only if it contains at least two
+#  DIFFERENT core terms — one passing mention is not evidence of work.
+#
+#    core       the words that define your profession
+#    supporting real but weaker signals
+#    ambient    tools and jargon that show up everywhere; capped so they
+#               can never carry a conversation on their own
+# ═══════════════════════════════════════════════════════════════════════
+
+core:
+  - data governance
+  - governance council
+  - data steward
+  - stewardship
+  - data catalog
+  - business glossary
+  - metadata repository
+  - openmetadata
+  - collibra
+  - alation
+  - purview
+  - policy-as-code
+  - masking policy
+  - data contract
+  - classification policy
+  - data classification
+  - access control
+  - audit trail
+  - data lineage
+  - row access policy
+  - column-level security
+  - data quality framework
+  - retention policy
+  - data domain
+  - data owner
+  - human-in-the-loop
+  - ai governance
+  - model governance
+  - responsible ai
+
+supporting:
+  - pii
+  - gdpr
+  - ccpa
+  - sox
+  - hipaa
+  - cmmc
+  - dlp
+  - mdm
+  - master data
+  - data quality
+  - taxonomy
+  - ontology
+  - semantic layer
+  - metadata
+  - data dictionary
+  - data mesh
+  - data product
+  - tagging
+  - masking
+  - anonymiz
+  - entitlement
+  - data privacy
+  - compliance
+  - regulatory
+  - attestation
+
+ambient:
+  - snowflake
+  - dbt
+  - power bi
+  - tableau
+  - airflow
+  - databricks
+  - redshift
+  - bigquery
+  - sql
+  - etl
+  - pipeline
+  - warehouse
+  - data model
+
+
+# ── SCORING ────────────────────────────────────────────────────────────
+scoring:
+  core_weight: 3
+  supporting_weight: 2
+  ambient_weight: 1
+  ambient_cap: 10          # ambient terms can contribute at most this much
+  min_core_terms: 2        # distinct core terms required to qualify
+  min_score: 25
+
+
+# ── WHAT TO IGNORE ─────────────────────────────────────────────────────
+# Conversations where you were writing your own resume score high on your
+# professional vocabulary because your resume is full of it. Treating them
+# as evidence would be the resume agreeing with itself. Always exclude.
+exclude_when_title_matches:
+  - resume
+  - cv
+  - cover letter
+  - ats
+  - job posting
+  - job description
+  - interview
+  - linkedin profile
+  - recruiter
+  - salary
+
+exclude_when_body_repeats:
+  threshold: 3
+  phrases:
+    - my resume
+    - my cv
+    - cover letter
+    - hiring manager
+    - bullet point
+    - job posting
+    - tailor my
+    - rewrite my

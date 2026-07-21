@@ -1,0 +1,229 @@
+# ═══════════════════════════════════════════════════════════════════════
+#  RESUME CONFIG  —  this file builds your resume.
+#
+#  You never edit code. Everything you can change is in this one file,
+#  plus your experiences in data/experiences.yaml.
+#
+#  Change something, run `python run.py jd/whatever.md`, get a new resume.
+#
+#  THIS IS THE EXAMPLE. Copy it to config/resume-config.yaml and fill it
+#  in. Your copy is excluded from GitHub, so your phone number and job
+#  history never leave your machine.
+# ═══════════════════════════════════════════════════════════════════════
+
+
+# ── WHO YOU ARE ────────────────────────────────────────────────────────
+# Anything blank is simply left off the page.
+
+identity:
+  name: Your Name
+  headline: Your Professional Headline   # blank "" to hide
+  location: City, ST
+  phone: "(555) 555-5555"
+  email: you@example.com
+
+  # Add as many links as you like. show: false keeps one on the bench
+  # without deleting it. Order here is the order printed.
+  links:
+    - label: LinkedIn
+      url: linkedin.com/in/your-handle
+      show: true
+    - label: GitHub
+      url: github.com/your-handle
+      show: true
+    - label: Substack
+      url: ""
+      show: false
+    - label: Portfolio
+      url: ""
+      show: false
+    - label: Instagram
+      url: ""
+      show: false
+    - label: X
+      url: ""
+      show: false
+
+
+# ── WHERE YOU WORKED ───────────────────────────────────────────────────
+# Add a job here and any experience tagged with its `id` becomes eligible.
+#
+#   ticker       stock symbol, prints as "Acme (ACME)". "" hides it.
+#   enabled      false drops the job from the resume entirely
+#   max_bullets  most lines this job can ever take on one resume
+#   priority     who wins when space runs out. Highest first.
+
+jobs:
+  - id: current
+    company: Acme Corporation
+    ticker: ACME                         # "" to hide
+    role: Director, Data Governance
+    location: City, ST
+    start: 2024-07
+    end: present                         # or a date like 2026-07
+    enabled: true
+    max_bullets: 10
+    priority: 10
+
+  - id: previous
+    company: Globex Inc.
+    ticker: ""
+    role: Data Governance Lead
+    location: City, ST
+    start: 2021-09
+    end: 2024-02
+    enabled: true
+    max_bullets: 6
+    priority: 8
+
+  - id: earlier
+    company: Initech
+    ticker: ""
+    role: Data Analyst
+    location: City, ST
+    start: 2016-01
+    end: 2021-08
+    enabled: true
+    max_bullets: 3
+    priority: 5
+
+
+# ── WHAT APPEARS ON THE PAGE ───────────────────────────────────────────
+# Reorder these lines and the page reorders. enabled: false hides one.
+#
+#   header   your name and contact line
+#   text     free text you write here
+#   jobs     the employment history above, with matched bullets
+#   tags     a comma list rendered on one line (skills)
+
+sections:
+  - id: header
+    type: header
+    enabled: true
+
+  - id: summary
+    type: text
+    title: SUMMARY
+    enabled: false
+    body: ""
+
+  - id: experience
+    type: jobs
+    title: PROFESSIONAL EXPERIENCE
+    enabled: true
+
+  - id: skills
+    type: tags
+    title: TECHNICAL SKILLS
+    enabled: true
+    # A skill prints only if it also appears in a bullet that shipped, so
+    # this list can never claim something the resume does not support.
+    verify_against_bullets: true
+    items:
+      - Snowflake
+      - Power BI
+      - SQL
+      - dbt
+      - OpenMetadata
+      - Collibra
+      - Salesforce
+      - ServiceNow
+      - Python
+      - Data Classification
+      - Data Lineage
+      - Master Data Management
+
+  - id: education
+    type: text
+    title: EDUCATION
+    enabled: false
+    body: ""
+
+
+# ── HOW IT LOOKS ───────────────────────────────────────────────────────
+# Sizes are points. Colours are hex without the #.
+# Defaults below are a dense, single-page look. Change anything.
+
+style:
+  font: Calibri              # any font installed on your machine
+
+  size:
+    name: 14
+    headline: 9
+    contact: 8
+    section: 11
+    company: 9
+    role: 9
+    dates: 8
+    body: 8
+    tags: 8
+
+  color:
+    name: "262626"
+    accent: "0070C0"          # company names and links
+    section: "31849B"         # section headings (teal)
+    body: "262626"
+    muted: "595959"           # dates, locations
+
+  margins:                    # inches
+    top: 0.20
+    bottom: 0.20
+    left: 0.20
+    right: 0.20
+
+  spacing:                    # points of gap after each element
+    after_name: 1
+    after_contact: 6
+    after_section: 3
+    after_company: 0
+    after_dates: 2
+    after_bullet: 2
+    before_section: 6
+
+  bullet_char: "▪"
+  bullet_indent: 0.16
+  section_rule: true          # horizontal line under section headings
+  uppercase_sections: true
+  date_format: "MMM yyyy"     # or "yyyy" for years only
+  date_separator: " – "
+  link_separator: "  |  "
+
+
+# ── HOW HARD TO CUT ────────────────────────────────────────────────────
+
+page:
+  max_pages: 1
+  chars_per_line: 168         # at 8pt Calibri across the text column
+  max_body_lines: 88
+  min_score: 1                # drop bullets scoring below this vs the posting
+
+
+# ── MATCHING ───────────────────────────────────────────────────────────
+# How a job posting finds your experiences.
+
+matching:
+  tag_weight: 2.5             # your curated tags beat incidental body words
+  match_weight: 3.0           # manual `match:` keywords beat even tags
+  recency_bonus: 0.5          # newer jobs get a nudge when scores tie
+
+  # `python propose.py jd/x.md` uses these when suggesting what to add.
+  propose:
+    show_unconfirmed: true    # surface things you have not confirmed yet
+    suggest_tags: true        # recommend keywords to add to an experience
+    max_suggestions: 25
+
+
+# ── AI REWRITING (optional, off unless you pass --llm) ──────────────────
+# The model is never trusted. Every rewrite is re-checked by ordinary code
+# and thrown away if it breaks any rule below.
+
+rewrite:
+  enabled: true
+  model: claude-sonnet-5
+
+  guardrails:
+    no_new_numbers: true      # every digit in the output must exist in the input
+    no_new_entities: true     # no new tools, companies, systems
+    no_scope_escalation: true # "helped" may not become "led"
+    max_length_ratio: 1.0     # a rewrite may not be longer than its source
+    require_diff_review: true # writes a before/after file for you to read

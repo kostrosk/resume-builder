@@ -1,55 +1,49 @@
 """
-run.py — end to end for one job description.
+run.py — one command per application.
 
-    python run.py jd/crowdstrike.md
+    python run.py jd/acme.md            free, no model
+    python run.py jd/acme.md --llm      AI shortens long bullets
 
-Rebuilds the master from your edited worksheet (checkbox states preserved),
-tailors, verifies the .docx, and logs the application.
+Reads config/resume-config.yaml and data/experiences.yaml.
 """
-import os, sys, subprocess, re
+import os, sys, subprocess
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PY = sys.executable
 
 
 def sh(*args):
-    r = subprocess.run([PY, *args], cwd=ROOT, capture_output=True, text=True)
+    r = subprocess.run([PY, *args], cwd=ROOT, capture_output=True, text=True,
+                       encoding="utf-8", errors="replace")
     if r.stdout:
         print(r.stdout.rstrip())
     if r.returncode != 0:
-        print(r.stderr.rstrip(), file=sys.stderr)
+        print((r.stderr or "").rstrip(), file=sys.stderr)
         sys.exit(r.returncode)
-    return r.stdout
 
 
 def main():
     if len(sys.argv) < 2:
-        print("usage: python run.py jd/<name>.md")
+        print("usage: python run.py jd/<name>.md [--llm]")
         sys.exit(1)
     jd = sys.argv[1]
-    if not os.path.exists(os.path.join(ROOT, jd)) and not os.path.exists(jd):
-        print(f"ERROR: no such JD: {jd}")
+    if not (os.path.exists(jd) or os.path.exists(os.path.join(ROOT, jd))):
+        print(f"ERROR: no such job description: {jd}")
         sys.exit(1)
     name = os.path.splitext(os.path.basename(jd))[0]
 
-    print("== rebuilding master from worksheet ==")
-    sh(os.path.join(ROOT, "build_master.py"))
-    print("\n== tailoring ==")
-    out = sh(os.path.join(ROOT, "tailor.py"), jd, *sys.argv[2:])
+    for f, hint in (("config/resume-config.yaml", "the config that builds the resume"),
+                    ("data/experiences.yaml", "run: python migrate.py")):
+        if not os.path.exists(os.path.join(ROOT, f)):
+            print(f"ERROR: missing {f} — {hint}")
+            sys.exit(1)
 
-    company = name.replace("-", " ").title()
-    role = ""
-    txt = open(os.path.join(ROOT, jd) if os.path.exists(os.path.join(ROOT, jd)) else jd,
-               encoding="utf-8").read()
-    first = next((l.strip("# ").strip() for l in txt.splitlines() if l.strip()), "")
-    if first:
-        role = first[:80]
+    sh(os.path.join(ROOT, "tailor.py"), jd, *sys.argv[2:])
 
     sys.path.insert(0, ROOT)
     import track
-    row = track.log(name, company=company, role=role)
-    print(f"\n== logged to applications.csv ==\n{row['date']}  {row['company']}  "
-          f"ATS {row['ats_score']}  {row['profile']}")
+    row = track.log(name, company=name.replace("-", " ").title())
+    print(f"\nlogged: {row['date']}  {row['company']}  ATS {row['ats_score']}  {row['profile']}")
 
 
 if __name__ == "__main__":

@@ -3,7 +3,15 @@
 # The tooling is the portfolio piece. The history stays local.
 # ─────────────────────────────────────────────────────────────
 master-resume.md
+
+# Your real config — holds phone, email, and job history.
+# The published version is config/resume-config.example.yaml.
+config/resume-config.yaml
 config/profile.yaml
+# Your experience library — real career content.
+# Use data/* not data/ — git cannot re-include a file inside an excluded dir.
+data/*
+!data/experiences.example.yaml
 source/
 work/
 evidence/

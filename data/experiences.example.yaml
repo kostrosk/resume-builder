@@ -1,0 +1,74 @@
+# Example experience library. Your real one lives at data/experiences.yaml,
+# which is gitignored and never published.
+#
+# Run `python migrate.py` to generate yours from existing resumes, or just
+# copy this file and write entries by hand.
+
+_readme:
+  - "One entry per accomplishment."
+  - "confirmed: true  -> eligible to appear on a resume."
+  - "confirmed: false -> invisible to the builder, no exceptions."
+  - "tags     -> how a job description finds this experience."
+  - "metrics  -> set kind: measured (a result) or target (a goal you set)."
+  - "           A target is never printed as an achievement."
+  - "text.long is your wording. medium/short are optional; leave blank and"
+  - "the builder shortens automatically when space is tight."
+
+experiences:
+  - id: acme-catalog
+    job: acme                      # must match a jobs[].id in resume-config.yaml
+    project: Data Governance Program
+    confirmed: true
+    tier: sent-resume              # sent-resume | draft-pack | chat-corroborated
+    tags:
+      - data catalog
+      - metadata
+      - stewardship
+    metrics:
+      - value: "40 tables"
+        kind: measured             # measured | target | unknown
+        context: documented in the catalog
+    text:
+      long: >-
+        Established a collaborative data catalog and **business glossary** from
+        inception without budget for paid tooling, documenting 40 critical
+        landing and dimensional tables.
+      medium: ""
+      short: ""
+
+  - id: acme-council
+    job: acme
+    project: Governance Operating Model
+    confirmed: true
+    tier: sent-resume
+    tags:
+      - data governance
+      - governance council
+      - operating model
+    metrics: []
+    text:
+      long: >-
+        Chartered a data governance program and roadmap; chaired biweekly
+        councils and working groups.
+      medium: ""
+      short: ""
+
+  # Unconfirmed entries are loaded by nothing and printed by nothing.
+  # They sit here until you verify them.
+  - id: acme-lineage
+    job: acme
+    project: Lineage
+    confirmed: false
+    tier: draft-pack
+    tags:
+      - data lineage
+      - impact analysis
+    metrics:
+      - value: "12 sources"
+        kind: unknown              # <- decide: measured result, or a target?
+        context: covered by lineage mapping
+    text:
+      long: >-
+        Implemented end-to-end data lineage across 12 upstream sources.
+      medium: ""
+      short: ""

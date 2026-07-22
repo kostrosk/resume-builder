@@ -1,6 +1,6 @@
 ---
 name: hil-interview
-description: Run one job application as a human-in-the-loop conversation - rank locked experiences against a posting, batch-confirm them with the user via structured questions, interview the remaining gaps, apply answers to the library, rebuild, and report the ATS movement. Invoke with a posting path, e.g. /hil-interview jd/acme.md.
+description: Run one job application as a human-in-the-loop conversation - rank locked experiences against a posting, batch-confirm them, align the confirmed set to the posting's vocabulary for ATS (guardrail-checked, user-approved, never invented), interview the remaining gaps into new real experiences, rebuild, and report the ATS movement. Invoke with a posting path, e.g. /hil-interview jd/acme.md.
 ---
 
 # HIL interview — one application, human in the loop
@@ -88,11 +88,67 @@ open(EXPS, "w", encoding="utf-8").writelines(out)
 Then re-parse the file; on any YAML error restore the backup and say so.
 Report exactly what changed: N flags flipped, backup filename.
 
-## Phase 4 — interview the remaining gaps
+## Phase 4 — align the confirmed set to the posting (ATS optimization)
 
-Recompute coverage with the newly confirmed set. For each top uncovered term
-(use `interview.py`'s gap logic: highest JD weight, no confirmed coverage,
-skip subsumed duplicates), ask via AskUserQuestion:
+The goal is to lift ATS and recruiter-search coverage by making a *true*
+experience use the *posting's own words* for the thing it already describes.
+This is translation, never invention. The library is reused across postings,
+so tune conservatively and preserve provenance.
+
+**The hard rule: every reword must pass `check_rewrite()`.** That is the same
+deterministic guard that governs `--llm` — it rejects any rewrite that adds a
+number, adds a tool/company/system, escalates scope (helped→led,
+designed→implemented), or grows longer. It is the proof that the reword
+invented nothing. The agent proposes; this function verifies; the user
+decides. Never write a reword that check_rewrite() rejected.
+
+For each confirmed experience that scores on this JD:
+
+1. Read the JD's weighted terms (`jdw = T.jd_terms(jd_text)`). Find where the
+   experience expresses a JD requirement in *different words* than the posting
+   uses ("chaired the governance body" vs the JD's "data governance council").
+2. Propose the minimal swap that puts the posting's exact phrase in place of
+   the synonym — only where the underlying fact genuinely is that thing.
+3. Validate on **truthfulness only** — drop the length rule:
+   ```python
+   full = cfg.get("rewrite", {}).get("guardrails", {})
+   reword_rules = {k: v for k, v in full.items() if k != "max_length_ratio"}
+   ok, why = T.check_rewrite(original_long, proposed_long, reword_rules)
+   ```
+   The `max_length_ratio` rule exists for the `--llm` *shortening* path and
+   rejects any rewrite a word longer — which is most honest term-swaps
+   ("body" → the JD's "council" is longer). Keep only the truthfulness guards:
+   `no_new_numbers`, `no_new_entities`, `no_scope_escalation`. Those block the
+   three ways a reword could lie (invented number, invented tool/company,
+   escalated scope) and fire independently of length. Fit to one page is a
+   *build* concern, handled downstream by selection and trim — not this phase.
+   If not ok, discard silently and move on — do not show the user a rewrite
+   the guardrail refused.
+4. Show surviving proposals via AskUserQuestion, original → proposed side by
+   side, one decision each: "Apply this wording? It says the same thing in the
+   posting's language." Selection applies; non-selection keeps the original.
+
+Prefer the **JD-agnostic lift** whenever it suffices: instead of touching
+prose, add the posting's term to the experience's `match:` list (the
+hand-weighted keyword surface). That raises ATS coverage for this posting
+without over-fitting the bullet's wording for the next one. Offer prose
+rewrites only where the term genuinely belongs in the sentence.
+
+Apply approved changes with the same backup + re-parse pattern as Phase 3,
+rewriting only the `long:` block and/or the `match:` list of the named ids.
+The timestamped backup preserves every original; note in the run summary that
+originals are recoverable. Never reword an entry the user did not approve.
+
+## Phase 5 — interview the remaining gaps into real experiences
+
+Recompute coverage with the confirmed-and-aligned set. Some posting
+requirements will still have no coverage. For each, the question is explicit:
+**"The posting requires X. Do you have real experience doing this that we
+should document?"**
+
+For each top uncovered term (use `interview.py`'s gap logic: highest JD
+weight, no confirmed coverage, skip subsumed duplicates), ask via
+AskUserQuestion:
 
 - The question quotes the posting's own sentence using the term.
 - Options: (a) the nearest existing library entry — "this covers it,
@@ -106,23 +162,30 @@ skip subsumed duplicates), ask via AskUserQuestion:
 
 Append via the same backup + re-parse pattern (`interview.py` shows the
 exact YAML shape). Skipped questions add nothing — a gap that stays a gap
-is the correct output.
+is the correct output, and it is the honest signal that the user may not fit
+this requirement. Never invent an experience to fill a gap the user did not
+personally claim.
 
-## Phase 5 — rebuild and report
+## Phase 6 — rebuild and report
 
 ```
 python run.py <jd>          # or tailor.py directly to skip logging twice
 ```
 
-Report: ATS before → after, bullets shipped before → after, which newly
-confirmed entries made it onto the page (lineage file names them), and the
-top remaining gaps. Offer the next round of batches if material value is
-still locked, or `--llm` tightening if long bullets were trimmed hard.
+Report: ATS before → after, bullets shipped before → after, how many bullets
+were reworded for the posting and how many gaps were filled with new real
+experiences, which entries made it onto the page (lineage file names them),
+and the top remaining gaps. Offer the next round of batches if material value
+is still locked, or `--llm` tightening if long bullets were trimmed hard.
 
 ## Never, in this flow
 
 - Never mark anything false because it was not selected.
-- Never reword a claim while carrying it — verbatim in, verbatim out.
+- Never reword during confirmation or mining — verbatim in, verbatim out.
+  Rewording happens ONLY in Phase 4, only after `check_rewrite()` passes, and
+  only on entries the user approved original-vs-proposed.
+- Never invent an experience to close a gap — Phase 5 records the user's own
+  words or leaves the gap open.
 - Never let a metric's kind stay unknown on an entry you just confirmed:
   ask measured-or-target while the user is right there.
 - Never run this against `data/` copies in scratch worktrees and forget to

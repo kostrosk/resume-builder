@@ -476,11 +476,21 @@ In a Claude Code session in this repo:
 /hil-interview jd/acme.md
 ```
 
-runs one application as a conversation: it ranks your locked experiences
-against the posting, asks you in batches which are true, interviews you about
-the remaining gaps (your typed answers become experiences, verbatim), applies
-everything with backups, rebuilds, and reports the ATS movement. You never
-leave the thread and never hand-edit YAML unless you want to.
+runs one application as a conversation:
+
+1. ranks your locked experiences against the posting
+2. asks you in batches which are true (confirmation)
+3. **aligns the confirmed ones to the posting's vocabulary for ATS** — swaps
+   in the posting's exact terms where your real experience already means that,
+   proven to invent nothing by the same guardrail that governs `--llm`, and
+   you approve each change original-vs-proposed
+4. asks whether you have real experience for the requirements still uncovered,
+   and records your answers verbatim as new experiences
+5. rebuilds and reports the ATS movement
+
+You never leave the thread and never hand-edit YAML unless you want to. Every
+change is backed up first; nothing is invented and nothing is reworded without
+your say-so.
 
 ## Design
 

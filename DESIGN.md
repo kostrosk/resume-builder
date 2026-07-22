@@ -208,6 +208,12 @@ tool maximises is the probability at every stage:
 4. **Exact-phrase alignment** — where confirmed experience genuinely *is* what
    the posting describes in other words, the bullet uses the posting's
    phrasing. Translation, not invention; `check_rewrite()` polices the line.
+   The `hil-interview` skill does this as a HIL step: it proposes the minimal
+   term-swap, validates it against the truthfulness guards (no new number, no
+   new tool/company, no scope escalation — the length guard is dropped because
+   the JD's phrase is often longer), and applies only what the user approves.
+   Pure keyword lift with no prose risk goes into an experience's `match:`
+   field instead, which stays honest across every future posting.
 5. **The human skim** — target title mirrored in the headline where truthful,
    strongest program-ownership bullets in the top third, a real education
    section present.

@@ -1,11 +1,53 @@
 # resume-builder
 
+![CI](https://github.com/kostrosk/resume-builder/actions/workflows/ci.yml/badge.svg)
+
 Turn old resumes, years of AI chat history, and your code projects into one
 resume library, then generate a tailored, one-page resume for any job posting.
 
 **New here? Read [PLAYBOOK.md](PLAYBOOK.md)** — the plain-language guide to
 every file and every workflow. This README is the reference;
 [DESIGN.md](DESIGN.md) is the reasoning.
+
+## Map
+
+```
+you edit ──►  data/experiences.yaml      everything you have ever done
+              config/resume-config.yaml  who you are + how the page looks
+              jd/<company>.md            the posting, facts up top
+                     │
+gather   ──►  ingest.py → migrate.py     old resumes  ─┐
+              mine_chat.py               AI chat logs  ├─►  candidates
+              mine_repos.py              code projects ─┘   (confirmed: false)
+                     │
+confirm  ──►  confirm.py  ·  interview.py   you say what is true
+                     │
+build    ──►  run.py → tailor.py → render.py  ──►  output/<company>.docx
+                                                    output/<company>-gaps.md
+                                                    lineage/<company>.md
+```
+
+| Layer | Files |
+|---|---|
+| Your data | [data/experiences.example.yaml](data/experiences.example.yaml) · [config/resume-config.example.yaml](config/resume-config.example.yaml) · [jd/sample-director-dg.md](jd/sample-director-dg.md) |
+| Gather | [ingest.py](ingest.py) · [migrate.py](migrate.py) · [mine_chat.py](mine_chat.py) · [mine_repos.py](mine_repos.py) |
+| Confirm | [confirm.py](confirm.py) · [interview.py](interview.py) · [propose.py](propose.py) |
+| Build | [run.py](run.py) · [tailor.py](tailor.py) · [render.py](render.py) · [track.py](track.py) |
+| Prove it | [test_guardrails.py](test_guardrails.py) · [scripts/smoke.py](scripts/smoke.py) · [.github/workflows/ci.yml](.github/workflows/ci.yml) · [examples/sample-output/](examples/sample-output/) |
+| Docs | [PLAYBOOK.md](PLAYBOOK.md) · [DESIGN.md](DESIGN.md) · [CLAUDE.md](CLAUDE.md) · [COPYRIGHT.md](COPYRIGHT.md) |
+| Agent skills | [resume-builder](.claude/skills/resume-builder/SKILL.md) · [hil-interview](.claude/skills/hil-interview/SKILL.md) · [ship-decision](.claude/skills/ship-decision/SKILL.md) |
+
+## Proof it works
+
+Every push runs [CI](.github/workflows/ci.yml): the guardrails
+([test_guardrails.py](test_guardrails.py)) and an end-to-end build from the
+published example data ([scripts/smoke.py](scripts/smoke.py)). The built sample
+resume and its gap report land in [examples/sample-output/](examples/sample-output/)
+and as a downloadable CI artifact. Nothing private is needed to run it.
+
+```bash
+python scripts/smoke.py     # run the same check locally
+```
 
 ---
 

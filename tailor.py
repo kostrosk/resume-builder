@@ -17,8 +17,11 @@ from collections import defaultdict
 import render as R
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-CONF = os.path.join(ROOT, "config", "resume-config.yaml")
-EXPS = os.path.join(ROOT, "data", "experiences.yaml")
+# Env overrides let CI (and tests) build from the published example files
+# without touching your real, gitignored config and library. Default is the
+# real thing; nothing changes for a normal run.
+CONF = os.environ.get("RESUME_CONFIG") or os.path.join(ROOT, "config", "resume-config.yaml")
+EXPS = os.environ.get("RESUME_EXPS") or os.path.join(ROOT, "data", "experiences.yaml")
 SYN = os.path.join(ROOT, "config", "synonyms.yaml")
 OUT = os.path.join(ROOT, "output")
 LIN = os.path.join(ROOT, "lineage")

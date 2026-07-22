@@ -16,7 +16,7 @@ _readme:
 
 experiences:
   - id: acme-catalog
-    job: acme                      # must match a jobs[].id in resume-config.yaml
+    job: current                      # must match a jobs[].id in resume-config.yaml
     project: Data Governance Program
     confirmed: true
     tier: sent-resume              # sent-resume | draft-pack | chat-corroborated
@@ -37,7 +37,7 @@ experiences:
       short: ""
 
   - id: acme-council
-    job: acme
+    job: current
     project: Governance Operating Model
     confirmed: true
     tier: sent-resume
@@ -56,7 +56,7 @@ experiences:
   # Unconfirmed entries are loaded by nothing and printed by nothing.
   # They sit here until you verify them.
   - id: acme-lineage
-    job: acme
+    job: current
     project: Lineage
     confirmed: false
     tier: draft-pack

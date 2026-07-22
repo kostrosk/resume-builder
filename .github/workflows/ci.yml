@@ -1,0 +1,40 @@
+name: CI
+
+# Prove, on every push, that the guardrails hold and the pipeline builds a
+# real resume — from the published example data only, so nothing private is
+# ever needed to run this.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install python-docx pyyaml
+
+      - name: Guardrails must pass (gates --llm rewriting)
+        run: python test_guardrails.py
+
+      - name: Smoke build from example data
+        run: python scripts/smoke.py
+
+      - name: Upload the built sample resume
+        uses: actions/upload-artifact@v4
+        with:
+          name: sample-resume
+          path: |
+            output/sample-director-dg.docx
+            examples/sample-output/
+          if-no-files-found: error

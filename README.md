@@ -463,12 +463,34 @@ reads.
 
 ---
 
+## Running it inside an agent (the intended way)
+
+The scripts work from any terminal, but this tool is built to be **driven by
+an agentic harness** — Claude Code in your IDE, or any agent that can ask you
+structured questions. The agent is the UI; the scripts are the deterministic
+substrate; you are the only source of truth.
+
+In a Claude Code session in this repo:
+
+```
+/hil-interview jd/acme.md
+```
+
+runs one application as a conversation: it ranks your locked experiences
+against the posting, asks you in batches which are true, interviews you about
+the remaining gaps (your typed answers become experiences, verbatim), applies
+everything with backups, rebuilds, and reports the ATS movement. You never
+leave the thread and never hand-edit YAML unless you want to.
+
 ## Design
 
 [DESIGN.md](DESIGN.md) covers why it is built this way: the verification gate,
 the data model, why matching is deterministic rather than embedding-based, and
 why the rewrite model is not trusted.
 
-Working on the code? [`.claude/skills/resume-builder/`](.claude/skills/resume-builder/SKILL.md)
-holds the conventions — the rules that cannot be broken and what to run before
-shipping a change.
+Working on or with the code via an agent? The skills are part of the repo:
+
+| Skill | What it does |
+|---|---|
+| [`resume-builder`](.claude/skills/resume-builder/SKILL.md) | Conventions and hard rules for any change in this repo |
+| [`hil-interview`](.claude/skills/hil-interview/SKILL.md) | One application, human-in-the-loop: confirm, interview gaps, rebuild, report |

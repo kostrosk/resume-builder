@@ -123,6 +123,21 @@ IDE agent's session notes. **Warning it will keep repeating: READMEs and
 agent notes are usually written by an AI**, so everything it finds is a lead
 to verify, not your words yet. Rewrite before confirming.
 
+### "Do all of this in one conversation" *(the intended way)*
+
+If you use this repo inside an AI coding agent (Claude Code in Antigravity,
+VS Code, or a terminal), type:
+
+```
+/hil-interview jd/company.md
+```
+
+The agent becomes the interface: it shows you your strongest locked
+experiences for that posting and asks which are true, asks you about the gaps
+(type your answer — it is saved word-for-word as yours), writes everything
+back with backups, rebuilds the resume, and tells you how the score moved.
+No YAML editing, no terminal commands, no leaving the chat.
+
 ### "There's a pile of unconfirmed stuff — what's worth my time?"
 
 1. `python propose.py jd/company.md` — ranks locked experiences by value

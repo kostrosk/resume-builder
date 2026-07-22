@@ -16,6 +16,14 @@ conventions. `PLAYBOOK.md` is the user-facing guide; `DESIGN.md` is the why.
 - The build never reads `source/draft/`.
 - Never emit tables, text boxes, columns, headers, or footers in output.
 
+## Execution model
+
+This tool is designed to run inside an agentic harness. The agent is the UI,
+the scripts are the deterministic substrate, the human is the verification
+oracle. `/hil-interview jd/<name>.md` runs one application end-to-end as a
+conversation (see `.claude/skills/hil-interview/SKILL.md`). Prefer driving
+that flow over telling the user to go run terminal commands.
+
 ## Layout
 
 - `data/experiences.yaml` + `config/resume-config.yaml` — the user's two

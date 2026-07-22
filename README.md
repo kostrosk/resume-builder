@@ -464,6 +464,7 @@ granted. See [COPYRIGHT.md](COPYRIGHT.md).
 | `migrate.py` | Turn them into your experience library |
 | `confirm.py` | Tick what is true — the gate everything else depends on |
 | `mine_chat.py` | Find forgotten work in AI chat exports |
+| `create_experiences.py` | Cluster chat evidence into draft experience bullets |
 | `mine_repos.py` | Surface project evidence from git repos and agent notes |
 | `interview.py` | Ask you about a posting's gaps; record your answers |
 | `propose.py` | Read a posting, say what to add and why |

@@ -214,6 +214,17 @@ output:
   pdf_engine: auto            # auto | word | libreoffice
 
 
+# ── RECENCY ────────────────────────────────────────────────────────────
+# A Director resume leads with recent, recognized work; the first job is a
+# line, not a section. Jobs whose end date is within `years` keep their full
+# max_bullets; anything older is capped to older_max_bullets. Keys off the
+# date, so early roles compress automatically as time passes. Set years huge
+# to disable.
+recency:
+  years: 5
+  older_max_bullets: 1
+
+
 # ── MATCHING ───────────────────────────────────────────────────────────
 # How a job posting finds your experiences.
 

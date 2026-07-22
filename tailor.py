@@ -395,6 +395,33 @@ def llm_rewrite(items, jd_text, cfg):
     return out
 
 
+def job_end_year(job):
+    """Year a job ended, for recency weighting. 'present' counts as this year."""
+    import datetime
+    end = str(job.get("end", "")).strip().lower()
+    if end in ("present", "current", "now", ""):
+        return datetime.date.today().year
+    m = re.match(r"(\d{4})", end)
+    return int(m.group(1)) if m else datetime.date.today().year
+
+
+def effective_max_bullets(job, cfg):
+    """A job's bullet cap, reduced once it falls outside the recency window.
+
+    A Director resume leads with recent, recognized work; the first job is a
+    line, not a section. `recency.years` sets the window and
+    `recency.older_max_bullets` caps everything older, so older roles compress
+    automatically as time passes — no need to re-edit the config every year.
+    """
+    import datetime
+    rc = cfg.get("recency", {})
+    years = rc.get("years", 5)
+    older_cap = rc.get("older_max_bullets", 1)
+    base = job.get("max_bullets", 4)
+    age = datetime.date.today().year - job_end_year(job)
+    return base if age <= years else min(base, older_cap)
+
+
 # ------------------------------------------------------------------ select
 def select(cfg, jobs, exps, jdw):
     page = cfg.get("page", {})
@@ -403,6 +430,7 @@ def select(cfg, jobs, exps, jdw):
     minscore = page.get("min_score", 1)
 
     mcfg = cfg.get("matching", {})
+    caps = {jid: effective_max_bullets(j, cfg) for jid, j in jobs.items()}
     scored = defaultdict(list)
     for e in exps:
         jid = e.get("job")
@@ -420,13 +448,13 @@ def select(cfg, jobs, exps, jdw):
     used, chosen = 0, defaultdict(list)
     # Enough rounds for the greediest job — a fixed ceiling here would silently
     # cap max_bullets and the config would be quietly lying to you.
-    rounds = max([j.get("max_bullets", 4) for j in jobs.values()] or [0])
+    rounds = max(list(caps.values()) or [0])
     for rnd in range(rounds):                   # round-robin so senior jobs fill first
         progressed = False
         for j in order:
             jid = j["id"]
             cand = scored.get(jid, [])
-            if rnd >= min(j.get("max_bullets", 4), len(cand)):
+            if rnd >= min(caps.get(jid, j.get("max_bullets", 4)), len(cand)):
                 continue
             item = cand[rnd]
             need = max(1, -(-len(item["text"]) // cpl))

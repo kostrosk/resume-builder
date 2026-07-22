@@ -24,6 +24,11 @@ oracle. `/hil-interview jd/<name>.md` runs one application end-to-end as a
 conversation (see `.claude/skills/hil-interview/SKILL.md`). Prefer driving
 that flow over telling the user to go run terminal commands.
 
+When the user approves a decision or direction, close the loop with
+`.claude/skills/ship-decision/` — write it to the right durable home (docs
+and/or memory), verify, and push to `main`. A decision that lives only in
+chat did not happen; next session it is gone.
+
 ## Layout
 
 - `data/experiences.yaml` + `config/resume-config.yaml` — the user's two

@@ -181,6 +181,47 @@ that will not parse is a resume nobody reads.
 
 ---
 
+## Getting read: the funnel, and why "overwhelm the ATS" is a trap
+
+The goal is not a high ATS score. It is a hiring manager reading the resume,
+and that sits at the end of a funnel:
+
+```
+ATS parse → recruiter keyword search → recruiter 6-second skim → shortlist → hiring manager
+```
+
+Most resumes die at the recruiter search and skim, not at the parse. **No
+compliant method guarantees a human reads a resume** — anyone promising a
+guarantee is selling fraud, a referral they do not control, or luck. What the
+tool maximises is the probability at every stage:
+
+1. **Referral** beats everything below combined and is fully compliant. The
+   tool cannot manufacture one, but the strategy names it first honestly.
+2. **Parse perfection** — single column, no tables, re-parsed after every
+   build, `.docx` by default. Zero points lost here.
+3. **Saturation of *true, confirmed* coverage** — recruiters run boolean
+   searches ("data governance" AND "Collibra" AND "council"). Every confirmed
+   claim using the posting's own nouns is another query the candidate matches.
+   This is what "overwhelm" legitimately means: distributed, contextual,
+   truthful coverage — which modern semantic scorers reward and repetition
+   they discount. The ceiling here is confirmation, not the renderer.
+4. **Exact-phrase alignment** — where confirmed experience genuinely *is* what
+   the posting describes in other words, the bullet uses the posting's
+   phrasing. Translation, not invention; `check_rewrite()` polices the line.
+5. **The human skim** — target title mirrored in the headline where truthful,
+   strongest program-ownership bullets in the top third, a real education
+   section present.
+
+Keyword stuffing, hidden text, and instructions aimed at an AI screener are
+not something this tool can produce: output is plain single-column text with no
+hidden channel, and the tool never composes a bullet. The only way such content
+enters is through a source document — and the confirmation step is a human
+reading their own bullets verbatim before any of them can ship. That review,
+not a phrase blocklist, is the defense; a blocklist of known payloads is
+whack-a-mole that any rewording defeats.
+
+---
+
 ## Privacy
 
 The tooling is the public artifact. The career data never is.

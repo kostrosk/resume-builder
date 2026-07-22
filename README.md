@@ -494,3 +494,4 @@ Working on or with the code via an agent? The skills are part of the repo:
 |---|---|
 | [`resume-builder`](.claude/skills/resume-builder/SKILL.md) | Conventions and hard rules for any change in this repo |
 | [`hil-interview`](.claude/skills/hil-interview/SKILL.md) | One application, human-in-the-loop: confirm, interview gaps, rebuild, report |
+| [`ship-decision`](.claude/skills/ship-decision/SKILL.md) | Close the loop on a decision: write it to docs/memory, verify, push to main |

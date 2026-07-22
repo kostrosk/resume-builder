@@ -406,6 +406,12 @@ Without `--llm`, no model runs and each application costs nothing.
 `lineage/`, and `export/` are all gitignored. Fork this publicly and your phone
 number, career history, and chat exports stay on your machine.
 
+## Copyright
+
+Copyright © 2026 Kory Kostroski. All rights reserved. This is a portfolio
+project — the tooling is the author's own work, and no reuse license is
+granted. See [COPYRIGHT.md](COPYRIGHT.md).
+
 ---
 
 ## Files
